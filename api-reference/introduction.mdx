@@ -1,33 +1,58 @@
 ---
-title: 'Introduction'
-description: 'Example section for showcasing API endpoints'
+title: "API Reference"
+description: "Interactive API documentation for SnackBase"
 ---
 
+## SnackBase API
+
+Complete interactive reference for all SnackBase API endpoints. Explore endpoints, test requests, and view responses directly from your browser.
+
 <Note>
-  If you're not looking to build API reference documentation, you can delete
-  this section by removing the api-reference folder.
+  Use the API playground on the right to test requests. You can switch between development and production environments using the selector above.
 </Note>
 
-## Welcome
+### Base URL
 
-There are two ways to build API documentation: [OpenAPI](https://mintlify.com/docs/api-playground/openapi/setup) and [MDX components](https://mintlify.com/docs/api-playground/mdx/configuration). For the starter kit, we are using the following OpenAPI specification.
+| Environment | URL |
+|-------------|-----|
+| Development | `http://localhost:8000` |
+| Production | `https://api.snackbase.com` |
 
-<Card
-  title="Plant Store Endpoints"
-  icon="leaf"
-  href="https://github.com/mintlify/starter/blob/main/api-reference/openapi.json"
->
-  View the OpenAPI specification file
-</Card>
+### Authentication
 
-## Authentication
+Most endpoints require authentication using a Bearer token:
 
-All API endpoints are authenticated using Bearer tokens and picked up from the specification file.
+```bash
+Authorization: Bearer <your_token>
+```
+
+### Response Format
+
+All responses return JSON:
 
 ```json
-"security": [
-  {
-    "bearerAuth": []
-  }
-]
+{
+  "data": {},
+  "message": "Success"
+}
 ```
+
+### Error Responses
+
+Errors follow this format:
+
+```json
+{
+  "error": "Error type",
+  "message": "Detailed error message"
+}
+```
+
+### Quick Links
+
+- [Authentication](/api-reference/auth) - Login, register, OAuth, SAML
+- [Accounts & Users](/api-reference/accounts) - Manage accounts and users
+- [Collections](/api-reference/collections) - Create and manage collections
+- [Records](/api-reference/records) - CRUD operations for records
+- [Roles](/api-reference/roles) - Role-based access control
+- [Permissions](/api-reference/permissions) - Fine-grained permissions

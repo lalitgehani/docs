@@ -1,0 +1,605 @@
+---
+title: "API Examples"
+description: "Complete guide to using the SnackBase REST API with practical examples"
+---
+
+Complete guide to using the SnackBase REST API with practical examples.
+
+## Getting Started
+
+### Base URL
+
+```
+Development: http://localhost:8000
+Production:  https://api.yourdomain.com
+```
+
+### API Version
+
+All endpoints are prefixed with `/api/v1`:
+
+```
+http://localhost:8000/api/v1/auth/register
+http://localhost:8000/api/v1/collections
+http://localhost:8000/api/v1/records/posts
+```
+
+<Warning>
+  All record operations use `/api/v1/records/&lcub;collection&rcub;`, NOT `/api/v1/&lcub;collection&rcub;`. The `records_router` must be registered LAST in FastAPI to avoid capturing specific routes.
+</Warning>
+
+### Interactive Documentation
+
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+- **OpenAPI JSON**: http://localhost:8000/openapi.json
+
+### Common Headers
+
+```bash
+Content-Type: application/json
+Authorization: Bearer <access_token>
+X-Correlation-ID: <optional-request-id>
+```
+
+## Authentication
+
+### 1. Register New Account
+
+Create a new account with the first admin user.
+
+**Endpoint**: `POST /api/v1/auth/register`
+
+**Authentication**: None (public endpoint)
+
+**Request**:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "account_name": "Acme Corporation",
+    "account_slug": "acme",
+    "email": "admin@acme.com",
+    "password": "SecurePass123!"
+  }'
+```
+
+**Response** (201 Created):
+
+```json
+{
+  "message": "Registration successful. Please check your email to verify your account.",
+  "account": {
+    "id": "AB1234",
+    "slug": "acme",
+    "name": "Acme Corporation",
+    "created_at": "2025-12-24T22:00:00Z"
+  },
+  "user": {
+    "id": "usr_abc123",
+    "email": "admin@acme.com",
+    "role": "admin",
+    "is_active": true,
+    "email_verified": false,
+    "created_at": "2025-12-24T22:00:00Z"
+  }
+}
+```
+
+<Note>
+  Registration no longer returns tokens immediately. Email verification is REQUIRED before login.
+</Note>
+
+**Password Strength Requirements**:
+
+- Minimum 12 characters
+- At least one uppercase letter (A-Z)
+- At least one lowercase letter (a-z)
+- At least one digit (0-9)
+- At least one special character: `!@#$%^&*()_+\-=\[\]{};':\"\\|,.<>\/?~`
+
+### 2. Login
+
+Authenticate with email, password, and account identifier.
+
+**Endpoint**: `POST /api/v1/auth/login`
+
+**Authentication**: None (public endpoint)
+
+**Request**:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "account": "acme",
+    "email": "admin@acme.com",
+    "password": "SecurePass123!"
+  }'
+```
+
+**Response** (200 OK):
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "expires_in": 3600,
+  "account": {
+    "id": "AB1234",
+    "slug": "acme",
+    "name": "Acme Corporation"
+  },
+  "user": {
+    "id": "usr_abc123",
+    "email": "admin@acme.com",
+    "role": "admin"
+  }
+}
+```
+
+**Account Identifier Options**:
+
+- Account slug: `"acme"`
+- Account ID: `"AB1234"`
+
+### 3. Refresh Token
+
+Get a new access token using a refresh token.
+
+**Endpoint**: `POST /api/v1/auth/refresh`
+
+**Request**:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{
+    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }'
+```
+
+### 4. Get Current User
+
+Get information about the authenticated user.
+
+**Endpoint**: `GET /api/v1/auth/me`
+
+**Authentication**: Required
+
+```bash
+curl -X GET http://localhost:8000/api/v1/auth/me \
+  -H "Authorization: Bearer <token>"
+```
+
+## Records (CRUD)
+
+**IMPORTANT**: All record operations use `/api/v1/records/&lcub;collection&rcub;`.
+
+### Create Record
+
+**Endpoint**: `POST /api/v1/records/&lcub;collection&rcub;``
+
+```bash
+curl -X POST http://localhost:8000/api/v1/records/posts \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Getting Started with SnackBase",
+    "content": "SnackBase is an open-source Backend-as-a-Service...",
+    "published": true
+  }'
+```
+
+### List Records
+
+**Endpoint**: `GET /api/v1/records/&lcub;collection&rcub;`
+
+| Parameter | Type | Default       | Constraints                |
+| --------- | ---- | ------------- | -------------------------- |
+| `skip`    | int  | 0             | &gt;= 0                    |
+| `limit`   | int  | 30            | &gt;= 1, &lt;= 100        |
+| `sort`    | str  | "-created_at" | +/- prefix for asc/desc    |
+| `fields`  | str  | null          | Comma-separated field list |
+| Field name | any  | -             | Filter by field value      |
+
+```bash
+curl -X GET "http://localhost:8000/api/v1/records/posts?skip=0&limit=10" \
+  -H "Authorization: Bearer <token>"
+```
+
+**Response**:
+
+```json
+{
+  "items": [
+    {
+      "id": "rec_abc123",
+      "title": "Getting Started with SnackBase",
+      "created_at": "2025-12-24T22:00:00Z"
+    }
+  ],
+  "total": 1,
+  "skip": 0,
+  "limit": 10
+}
+```
+
+### Get Single Record
+
+**Endpoint**: `GET /api/v1/records/&lcub;collection&rcub;/&lcub;id&rcub;`
+
+```bash
+curl -X GET http://localhost:8000/api/v1/records/posts/rec_abc123 \
+  -H "Authorization: Bearer <token>"
+```
+
+### Update Record (Full)
+
+**Endpoint**: `PUT /api/v1/records/&lcub;collection&rcub;/&lcub;id&rcub;`
+
+```bash
+curl -X PUT http://localhost:8000/api/v1/records/posts/rec_abc123 \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Updated Title",
+    "content": "Updated content..."
+  }'
+```
+
+### Update Record (Partial)
+
+**Endpoint**: `PATCH /api/v1/records/&lcub;collection&rcub;/&lcub;id&rcub;`
+
+```bash
+curl -X PATCH http://localhost:8000/api/v1/records/posts/rec_abc123 \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "views": 150
+  }'
+```
+
+### Delete Record
+
+**Endpoint**: `DELETE /api/v1/records/&lcub;collection&rcub;/&lcub;id&rcub;`
+
+```bash
+curl -X DELETE http://localhost:8000/api/v1/records/posts/rec_abc123 \
+  -H "Authorization: Bearer <token>"
+```
+
+## Collections
+
+All collection endpoints require **Superadmin** access.
+
+### Create Collection
+
+**Endpoint**: `POST /api/v1/collections/`
+
+```bash
+curl -X POST http://localhost:8000/api/v1/collections/ \
+  -H "Authorization: Bearer <superadmin_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "posts",
+    "schema": [
+      {
+        "name": "title",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "content",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "published",
+        "type": "boolean",
+        "default": false
+      }
+    ]
+  }'
+```
+
+**Field Types**:
+
+| Type        | Description                                           |
+| ----------- | ----------------------------------------------------- |
+| `text`      | String values                                         |
+| `number`    | Numeric values (int or float, not bool)               |
+| `boolean`   | True/false                                            |
+| `datetime`  | ISO 8601 datetime strings                             |
+| `email`     | Email addresses (validated)                           |
+| `url`       | URLs (validated, must start with http:// or https://) |
+| `json`      | JSON objects                                          |
+| `reference` | Foreign key to another collection                     |
+
+## Roles & Permissions
+
+### Create Role
+
+**Endpoint**: `POST /api/v1/roles`
+
+```bash
+curl -X POST http://localhost:8000/api/v1/roles \
+  -H "Authorization: Bearer <superadmin_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "editor",
+    "description": "Can edit but not delete content"
+  }'
+```
+
+### Bulk Update Permissions
+
+**Endpoint**: `PUT /api/v1/roles/&lcub;role_id&rcub;/permissions/bulk`
+
+```bash
+curl -X PUT http://localhost:8000/api/v1/roles/3/permissions/bulk \
+  -H "Authorization: Bearer <superadmin_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "updates": [
+      {
+        "collection": "posts",
+        "operation": "create",
+        "rule": "true",
+        "fields": ["title", "content"]
+      },
+      {
+        "collection": "posts",
+        "operation": "update",
+        "rule": "@owns_record() or @has_role(\"admin\")",
+        "fields": ["title", "content"]
+      }
+    ]
+  }'
+```
+
+### Permission Rule Syntax
+
+```python
+# Always allow
+"true"
+
+# Role checks
+"@has_role(\"admin\")"
+
+# Record ownership
+"@owns_record()"
+
+# Field comparisons
+"status in [\"draft\", \"published\"]"
+
+# Complex expressions
+"@has_role(\"admin\") or @owns_record()"
+```
+
+**Permission Structure**:
+
+```json
+{
+  "create": {"rule": "true", "fields": ["title", "content"]},
+  "read": {"rule": "true", "fields": "*"},
+  "update": {"rule": "@owns_record()", "fields": ["title"]},
+  "delete": {"rule": "@has_role(\"admin\")", "fields": "*"}
+}
+```
+
+## Users
+
+All users endpoints require **Superadmin** access.
+
+### Create User
+
+**Endpoint**: `POST /api/v1/users`
+
+```bash
+curl -X POST http://localhost:8000/api/v1/users \
+  -H "Authorization: Bearer <superadmin_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "SecurePass123!",
+    "account_id": "AB1234",
+    "role_id": "2"
+  }'
+```
+
+### List Users
+
+**Endpoint**: `GET /api/v1/users`
+
+| Parameter    | Type | Default      | Description                           |
+| ------------ | ---- | ------------ | ------------------------------------- |
+| `skip`       | int  | 0            | Pagination offset                      |
+| `limit`      | int  | 25           | Results per page (max 100)            |
+| `account_id` | str  | null         | Filter by account                     |
+| `role_id`    | int  | null         | Filter by role                        |
+| `is_active`  | bool | null         | Filter by active status               |
+| `search`     | str  | null         | Search in email                       |
+
+## OAuth Authentication
+
+SnackBase supports OAuth 2.0 authentication for popular providers.
+
+### Supported Providers
+
+- `google` - Google OAuth 2.0
+- `github` - GitHub OAuth App
+- `microsoft` - Microsoft Azure AD
+- `apple` - Sign in with Apple
+
+### Initiate OAuth Flow
+
+**Endpoint**: `POST /api/v1/auth/oauth/&lcub;provider_name&rcub;/authorize`
+
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/oauth/google/authorize \
+  -H "Content-Type: application/json" \
+  -d '{
+    "account": "acme",
+    "redirect_uri": "http://localhost:3000/auth/callback",
+    "state": "random_state_string"
+  }'
+```
+
+**Response**:
+
+```json
+{
+  "authorization_url": "https://accounts.google.com/o/oauth2/v2/auth?client_id=...",
+  "state": "random_state_string",
+  "provider": "google"
+}
+```
+
+## SAML Authentication
+
+SnackBase supports SAML 2.0 for enterprise single sign-on (SSO).
+
+### Supported Providers
+
+- `azure` - Microsoft Azure AD
+- `okta` - Okta Identity Cloud
+- `generic` - Any SAML 2.0 compliant IdP
+
+### Initiate SAML SSO
+
+**Endpoint**: `GET /api/v1/auth/saml/sso`
+
+```bash
+curl -X GET "http://localhost:8000/api/v1/auth/saml/sso?account=acme&provider=azure" \
+  -L
+```
+
+**Response**: Redirects to the Identity Provider's login page
+
+### Download SAML Metadata
+
+**Endpoint**: `GET /api/v1/auth/saml/metadata`
+
+```bash
+curl -X GET "http://localhost:8000/api/v1/auth/saml/metadata?account=acme&provider=azure" \
+  -o saml-metadata.xml
+```
+
+## Error Handling
+
+### HTTP Status Codes
+
+| Code | Meaning               | Example                    |
+| ---- | --------------------- | -------------------------- |
+| 200  | OK                    | Successful GET, PUT, PATCH |
+| 201  | Created               | Successful POST            |
+| 204  | No Content            | Successful DELETE          |
+| 400  | Bad Request           | Validation error           |
+| 401  | Unauthorized          | Missing or invalid token   |
+| 403  | Forbidden             | Insufficient permissions   |
+| 404  | Not Found             | Resource doesn't exist     |
+| 409  | Conflict              | Duplicate resource         |
+| 422  | Unprocessable Entity  | Invalid data format        |
+| 500  | Internal Server Error | Server error               |
+
+### Error Response Format
+
+```json
+{
+  "error": "Error type",
+  "message": "Error message describing what went wrong"
+}
+```
+
+### Validation Error Response
+
+```json
+{
+  "error": "Validation error",
+  "details": [
+    {
+      "field": "password",
+      "message": "Password must be at least 12 characters...",
+      "code": "password_too_weak"
+    }
+  ]
+}
+```
+
+## Best Practices
+
+### 1. Always Use HTTPS in Production
+
+```bash
+# Bad (production)
+http://api.yourdomain.com/api/v1/records/posts
+
+# Good (production)
+https://api.yourdomain.com/api/v1/records/posts
+```
+
+### 2. Store Tokens Securely
+
+```javascript
+// Bad - localStorage is vulnerable to XSS
+localStorage.setItem("token", token);
+
+// Good - httpOnly cookie (server-side)
+```
+
+### 3. Handle Token Expiration
+
+```javascript
+async function makeRequest(url) {
+  let token = getAccessToken();
+
+  if (isTokenExpiringSoon(token)) {
+    token = await refreshAccessToken();
+  }
+
+  return fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+```
+
+### 4. Use Pagination for Large Datasets
+
+```bash
+# Bad - fetching too many records
+curl -X GET http://localhost:8000/api/v1/records/posts?limit=1000
+
+# Good - paginate results
+curl -X GET "http://localhost:8000/api/v1/records/posts?skip=0&limit=30"
+```
+
+### 5. Use Field Limiting
+
+```bash
+# Good - limit to needed fields
+curl -X GET "http://localhost:8000/api/v1/records/posts?fields=id,title,created_at"
+```
+
+### 6. Remember Route Registration Order
+
+<Warning>
+  The `records_router` MUST be registered LAST in your FastAPI app to prevent capturing specific routes.
+</Warning>
+
+```python
+# Correct order in app.py
+app.include_router(invitations_router, prefix="/api/v1/invitations")
+app.include_router(collections_router, prefix="/api/v1/collections")
+app.include_router(accounts_router, prefix="/api/v1/accounts")
+# ... all other specific routers ...
+app.include_router(records_router, prefix="/api/v1/records")  # MUST BE LAST
+```
+
+## Related Guides
+
+- [Writing Rules](./writing-rules)
+- [Security Model](/concepts/security)
+- [OAuth Overview](./oauth-overview)

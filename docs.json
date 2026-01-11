@@ -1,87 +1,277 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "theme": "maple",
+  "name": "SnackBase",
   "colors": {
     "primary": "#16A34A",
     "light": "#07C983",
     "dark": "#15803D"
   },
   "favicon": "/favicon.svg",
+  "api": {
+    "playground": {
+      "mode": "show"
+    },
+    "baseUrl": {
+      "production": "https://api.snackbase.com",
+      "development": "http://localhost:8000"
+    }
+  },
   "navigation": {
     "tabs": [
       {
         "tab": "Guides",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Getting Started",
+            "pages": ["index", "quickstart"]
+          },
+          {
+            "group": "Deployment",
+            "pages": ["deployment"]
+          },
+          {
+            "group": "Developer Guides",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "guides/adding-api-endpoints",
+              "guides/creating-custom-hooks",
+              "guides/writing-rules",
+              "guides/testing",
+              "guides/extending-snackbase",
+              "guides/frontend"
             ]
           },
           {
-            "group": "Customization",
+            "group": "OAuth Setup",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "guides/oauth-overview",
+              "guides/oauth-setup-google",
+              "guides/oauth-setup-github",
+              "guides/oauth-setup-microsoft",
+              "guides/oauth-setup-apple"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "SAML Setup",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
-            ]
-          },
-          {
-            "group": "AI tools",
-            "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "guides/saml-setup-generic",
+              "guides/saml-setup-okta",
+              "guides/saml-setup-azure-ad"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Concepts",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Core Concepts",
             "pages": [
-              "api-reference/introduction"
+              "concepts/multi-tenancy",
+              "concepts/collections",
+              "concepts/authentication",
+              "concepts/security"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Advanced",
+            "pages": ["architecture", "hooks", "permissions", "macros"]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": ["api-reference/introduction", "api-reference/examples"]
+          },
+          {
+            "group": "Health",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api-reference/endpoints/health/health-check",
+              "api-reference/endpoints/health/readiness-check",
+              "api-reference/endpoints/health/liveness-check"
+            ]
+          },
+          {
+            "group": "Authentication",
+            "pages": [
+              "api-reference/endpoints/auth/register",
+              "api-reference/endpoints/auth/login",
+              "api-reference/endpoints/auth/refresh-tokens",
+              "api-reference/endpoints/auth/get-current-user-info",
+              "api-reference/endpoints/auth/send-verification-email",
+              "api-reference/endpoints/auth/resend-verification",
+              "api-reference/endpoints/auth/verify-email",
+              "api-reference/endpoints/auth/forgot-password",
+              "api-reference/endpoints/auth/reset-password",
+              "api-reference/endpoints/auth/verify-reset-token",
+              "api-reference/endpoints/auth/authorize",
+              "api-reference/endpoints/auth/callback",
+              "api-reference/endpoints/auth/sso",
+              "api-reference/endpoints/auth/acs",
+              "api-reference/endpoints/auth/metadata"
+            ]
+          },
+          {
+            "group": "Collections",
+            "pages": [
+              "api-reference/endpoints/collections/list-collections",
+              "api-reference/endpoints/collections/create-collection",
+              "api-reference/endpoints/collections/get-collection-names",
+              "api-reference/endpoints/collections/get-collection",
+              "api-reference/endpoints/collections/update-collection",
+              "api-reference/endpoints/collections/delete-collection"
+            ]
+          },
+          {
+            "group": "Records",
+            "pages": [
+              "api-reference/endpoints/records/list-records",
+              "api-reference/endpoints/records/create-record",
+              "api-reference/endpoints/records/get-record",
+              "api-reference/endpoints/records/update-record-full",
+              "api-reference/endpoints/records/delete-record",
+              "api-reference/endpoints/records/update-record-partial"
+            ]
+          },
+          {
+            "group": "Users",
+            "pages": [
+              "api-reference/endpoints/users/list-users",
+              "api-reference/endpoints/users/create-a-new-user",
+              "api-reference/endpoints/users/get-a-user",
+              "api-reference/endpoints/users/deactivate-a-user",
+              "api-reference/endpoints/users/update-a-user",
+              "api-reference/endpoints/users/reset-user-password",
+              "api-reference/endpoints/users/manually-verify-user-email",
+              "api-reference/endpoints/users/resend-verification-email"
+            ]
+          },
+          {
+            "group": "Accounts",
+            "pages": [
+              "api-reference/endpoints/accounts/list-accounts",
+              "api-reference/endpoints/accounts/create-account",
+              "api-reference/endpoints/accounts/get-account",
+              "api-reference/endpoints/accounts/update-account",
+              "api-reference/endpoints/accounts/delete-account",
+              "api-reference/endpoints/accounts/get-account-users"
+            ]
+          },
+          {
+            "group": "Invitations",
+            "pages": [
+              "api-reference/endpoints/invitations/list-invitations",
+              "api-reference/endpoints/invitations/create-invitation",
+              "api-reference/endpoints/invitations/resend-invitation",
+              "api-reference/endpoints/invitations/get-invitation",
+              "api-reference/endpoints/invitations/accept-invitation",
+              "api-reference/endpoints/invitations/cancel-invitation"
+            ]
+          },
+          {
+            "group": "Groups",
+            "pages": [
+              "api-reference/endpoints/groups/list-groups",
+              "api-reference/endpoints/groups/create-a-new-group",
+              "api-reference/endpoints/groups/get-a-group",
+              "api-reference/endpoints/groups/delete-a-group",
+              "api-reference/endpoints/groups/update-a-group",
+              "api-reference/endpoints/groups/add-user-to-group",
+              "api-reference/endpoints/groups/remove-user-from-group"
+            ]
+          },
+          {
+            "group": "Permissions",
+            "pages": [
+              "api-reference/endpoints/permissions/list-permissions",
+              "api-reference/endpoints/permissions/create-permission",
+              "api-reference/endpoints/permissions/get-permission",
+              "api-reference/endpoints/permissions/delete-permission"
+            ]
+          },
+          {
+            "group": "Roles",
+            "pages": [
+              "api-reference/endpoints/roles/list-roles",
+              "api-reference/endpoints/roles/create-role",
+              "api-reference/endpoints/roles/get-role",
+              "api-reference/endpoints/roles/update-role",
+              "api-reference/endpoints/roles/delete-role",
+              "api-reference/endpoints/roles/get-role-permissions",
+              "api-reference/endpoints/roles/get-permissions-matrix",
+              "api-reference/endpoints/roles/bulk-update-permissions",
+              "api-reference/endpoints/roles/validate-rule",
+              "api-reference/endpoints/roles/test-rule"
+            ]
+          },
+          {
+            "group": "Macros",
+            "pages": [
+              "api-reference/endpoints/macros/list-macros",
+              "api-reference/endpoints/macros/create-macro",
+              "api-reference/endpoints/macros/get-macro",
+              "api-reference/endpoints/macros/update-macro",
+              "api-reference/endpoints/macros/delete-macro",
+              "api-reference/endpoints/macros/test-macro"
+            ]
+          },
+          {
+            "group": "Audit Logs",
+            "pages": [
+              "api-reference/endpoints/audit-logs/list-audit-logs",
+              "api-reference/endpoints/audit-logs/export-audit-logs",
+              "api-reference/endpoints/audit-logs/get-audit-log"
+            ]
+          },
+          {
+            "group": "Files",
+            "pages": [
+              "api-reference/endpoints/files/upload-a-file",
+              "api-reference/endpoints/files/download-a-file"
+            ]
+          },
+          {
+            "group": "Dashboard",
+            "pages": ["api-reference/endpoints/dashboard/get-dashboard-stats"]
+          },
+          {
+            "group": "Migrations",
+            "pages": [
+              "api-reference/endpoints/migrations/list-migrations",
+              "api-reference/endpoints/migrations/get-current-migration",
+              "api-reference/endpoints/migrations/get-migration-history"
+            ]
+          },
+          {
+            "group": "Admin",
+            "pages": [
+              "api-reference/endpoints/admin/get-configuration-stats",
+              "api-reference/endpoints/admin/get-recent-configurations",
+              "api-reference/endpoints/admin/get-system-configurations",
+              "api-reference/endpoints/admin/get-account-configurations",
+              "api-reference/endpoints/admin/delete-configuration",
+              "api-reference/endpoints/admin/update-configuration-status",
+              "api-reference/endpoints/admin/get-available-providers",
+              "api-reference/endpoints/admin/get-provider-schema",
+              "api-reference/endpoints/admin/get-configuration-values",
+              "api-reference/endpoints/admin/update-configuration-values",
+              "api-reference/endpoints/admin/create-configuration",
+              "api-reference/endpoints/admin/test-provider-connection",
+              "api-reference/endpoints/admin/list-email-templates",
+              "api-reference/endpoints/admin/get-email-template",
+              "api-reference/endpoints/admin/update-email-template",
+              "api-reference/endpoints/admin/render-email-template",
+              "api-reference/endpoints/admin/send-test-email",
+              "api-reference/endpoints/admin/list-email-logs",
+              "api-reference/endpoints/admin/get-email-log"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
+    ]
   },
   "logo": {
     "light": "/logo/light.svg",
@@ -90,33 +280,29 @@
   "navbar": {
     "links": [
       {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "label": "Demo",
+        "href": "https://demo.snackbase.dev"
+      },
+      {
+        "label": "GitHub",
+        "href": "https://github.com/lalitgehani/snackbase"
       }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
+    ]
   },
   "contextual": {
     "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      "cursor",
+      "vscode"
+    ]
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "github": "https://github.com/lalitgehani/snackbase"
     }
   }
 }

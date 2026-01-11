@@ -1,0 +1,470 @@
+---
+title: "Frontend Developer Guide"
+description: "Complete guide to the SnackBase React admin UI architecture, development patterns, and best practices"
+---
+
+This guide covers the SnackBase React admin UI architecture, development patterns, and how to build and extend the frontend.
+
+## Tech Stack
+
+The SnackBase admin UI is built with modern, production-ready technologies:
+
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| **React** | 19.2.0 | UI framework |
+| **TypeScript** | 5.9.3 | Type safety |
+| **Vite** | 7.2.4 | Build tool and dev server |
+| **React Router** | 7.11.0 | Client-side routing |
+| **TailwindCSS** | 4.1.18 | Utility-first styling |
+| **Radix UI** | Latest | Accessible component primitives |
+| **ShadCN** | Latest | Pre-built component library |
+| **TanStack Query** | 5.90.12 | Server state management |
+| **Zustand** | 5.0.9 | Client state management |
+| **Zod** | 4.2.1 | Schema validation |
+| **Axios** | 1.13.2 | HTTP client |
+| **React Hook Form** | 7.69.0 | Form state management |
+
+## Project Structure
+
+```
+ui/
+├── src/
+│   ├── main.tsx                 # Application entry point
+│   ├── App.tsx                  # Root component with Router
+│   ├── App.css                  # Global styles with TailwindCSS
+│   │
+│   ├── pages/                   # Page components (15 pages)
+│   │   ├── LoginPage.tsx
+│   │   ├── DashboardPage.tsx
+│   │   ├── AccountsPage.tsx
+│   │   ├── UsersPage.tsx
+│   │   └── ...
+│   │
+│   ├── components/              # Reusable components (83 components)
+│   │   ├── ui/                  # ShadCN components (DO NOT EDIT)
+│   │   ├── accounts/
+│   │   ├── collections/
+│   │   ├── records/
+│   │   ├── AppSidebar.tsx
+│   │   └── ProtectedRoute.tsx
+│   │
+│   ├── services/                # API service layer (15 services)
+│   │   ├── api.ts               # Axios configuration
+│   │   ├── auth.service.ts
+│   │   ├── users.service.ts
+│   │   └── ...
+│   │
+│   ├── stores/                  # Zustand state stores
+│   │   └── auth.store.ts
+│   │
+│   ├── hooks/                   # Custom React hooks
+│   ├── lib/                     # Utilities and helpers
+│   └── types/                   # TypeScript type definitions
+│
+├── index.html                   # HTML entry point
+├── package.json                 # Dependencies and scripts
+├── vite.config.ts               # Vite build configuration
+└── components.json              # ShadCN configuration
+```
+
+## Architecture Overview
+
+The frontend follows a **layered architecture** with clear separation of concerns:
+
+```
+┌─────────────────────────────────┐
+│         Pages Layer             │
+│  (Route handlers, orchestration)│
+└────────────┬────────────────────┘
+             │
+┌────────────▼────────────────────┐
+│       Components Layer          │
+│    (Reusable UI components)     │
+└────────────┬────────────────────┘
+             │
+┌────────────▼────────────────────┐
+│     Business Logic Layer        │
+│  (Zustand stores, custom hooks) │
+└────────────┬────────────────────┘
+             │
+┌────────────▼────────────────────┐
+│         Data Layer              │
+│  (Services with TanStack Query) │
+└────────────┬────────────────────┘
+             │
+┌────────────▼────────────────────┐
+│        Axios API                │
+│  (HTTP client with interceptors) │
+└─────────────────────────────────┘
+```
+
+## State Management
+
+### Global State: Zustand
+
+Authentication state is managed in `src/stores/auth.store.ts`:
+
+```typescript
+interface AuthState {
+  // State
+  user: UserInfo | null;
+  token: string | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+
+  // Actions
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => void;
+  restoreSession: () => Promise<void>;
+}
+
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set, get) => ({
+      // Initial state and actions...
+    }),
+    {
+      name: 'auth-storage',
+      partialize: (state) => ({
+        user: state.user,
+        token: state.token,
+        isAuthenticated: state.isAuthenticated,
+      }),
+    }
+  )
+);
+```
+
+**Key Features:**
+- Token stored in localStorage with key `auth-storage`
+- Persist middleware for session persistence
+- `restoreSession()` verifies token validity on app load
+- Automatic logout on 401 responses
+
+### Server State: TanStack Query
+
+All data from the API is managed by TanStack Query:
+
+```typescript
+const { data: collections, isLoading, error } = useQuery({
+  queryKey: ['collections'],
+  queryFn: collectionsService.getCollections,
+});
+```
+
+## API Service Layer
+
+All services follow a consistent pattern in `src/services/`:
+
+```typescript
+// src/services/users.service.ts
+import { apiClient } from '@/lib/api';
+
+export const usersService = {
+  getAll: async (): Promise<User[]> => {
+    const response = await apiClient.get<User[]>('/users');
+    return response.data;
+  },
+
+  create: async (data: CreateUserDto): Promise<User> => {
+    const response = await apiClient.post<User>('/users', data);
+    return response.data;
+  },
+
+  update: async (id: string, data: UpdateUserDto): Promise<User> => {
+    const response = await apiClient.put<User>(`/users/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await apiClient.delete(`/users/${id}`);
+  },
+};
+```
+
+### Axios Configuration
+
+The `lib/api.ts` file configures the Axios instance:
+
+```typescript
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+
+export const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  headers: { 'Content-Type': 'application/json' },
+});
+
+// Request interceptor - add auth token
+apiClient.interceptors.request.use((config) => {
+  const authState = localStorage.getItem('auth-storage');
+  if (authState) {
+    const parsedState = JSON.parse(authState);
+    const token = parsedState?.state?.token;
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+  return config;
+});
+
+// Response interceptor - handle token refresh
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response?.status === 401 && !error.config._retry) {
+      error.config._retry = true;
+      // Attempt token refresh...
+    }
+    return Promise.reject(error);
+  }
+);
+```
+
+## Authentication Flow
+
+### Login Flow
+
+```
+User enters credentials
+       ↓
+POST /auth/login (auth.service.ts)
+       ↓
+Store in Zustand store with persist
+       ↓
+Redirect to /admin/dashboard
+```
+
+### Protected Routes
+
+The `ProtectedRoute` component wraps routes that require authentication:
+
+```typescript
+export default function ProtectedRoute({ children }) {
+  const { isAuthenticated, isLoading, restoreSession } = useAuthStore();
+
+  useEffect(() => {
+    restoreSession();
+  }, [restoreSession]);
+
+  if (isLoading) return <div>Loading...</div>;
+  if (!isAuthenticated) return <Navigate to="/admin/login" replace />;
+
+  return <>{children}</>;
+}
+```
+
+### Usage in App.tsx
+
+All admin routes are under the `/admin` prefix:
+
+```typescript
+<Routes>
+  <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
+  <Route path="/admin/login" element={<LoginPage />} />
+
+  <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
+    <Route path="dashboard" element={<DashboardPage />} />
+    <Route path="users" element={<UsersPage />} />
+    {/* ... more routes */}
+  </Route>
+</Routes>
+```
+
+## Components & Patterns
+
+### ShadCN Components
+
+ShadCN provides pre-built, accessible components. **Never edit ShadCN components directly** in `src/components/ui/`.
+
+To add new ShadCN components:
+
+```bash
+cd ui
+npx shadcn@latest add button
+npx shadcn@latest add dialog
+npx shadcn@latest add table
+```
+
+### Component Composition Pattern
+
+Build complex components by composing ShadCN primitives:
+
+```typescript
+import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+
+export function UsersTable({ users, onEdit, onDelete }) {
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Name</TableHead>
+          <TableHead>Email</TableHead>
+          <TableHead>Actions</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {users.map((user) => (
+          <TableRow key={user.id}>
+            <TableCell>{user.name}</TableCell>
+            <TableCell>{user.email}</TableCell>
+            <TableCell>
+              <Button onClick={() => onEdit(user)}>Edit</Button>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+```
+
+### Dialog-Based CRUD Operations
+
+Most CRUD operations use ShadCN Dialog components:
+
+```typescript
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+
+export function CreateUserDialog({ open, onOpenChange, onSuccess }) {
+  const form = useForm({ resolver: zodResolver(schema) });
+
+  const createUser = useMutation({
+    mutationFn: usersService.create,
+    onSuccess: () => {
+      onSuccess();
+      onOpenChange(false);
+    },
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create User</DialogTitle>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit((data) => createUser.mutate(data))}>
+            {/* Form fields */}
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+```
+
+## Routing
+
+All routes are under the `/admin` prefix:
+
+```typescript
+<Routes>
+  <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
+    <Route path="dashboard" element={<DashboardPage />} />
+    <Route path="accounts" element={<AccountsPage />} />
+    <Route path="users" element={<UsersPage />} />
+    <Route path="collections" element={<CollectionsPage />} />
+    <Route path="collections/:collectionName/records" element={<RecordsPage />} />
+    <Route path="roles" element={<RolesPage />} />
+    <Route path="audit-logs" element={<AuditLogsPage />} />
+    <Route path="migrations" element={<MigrationsPage />} />
+    <Route path="macros" element={<MacrosPage />} />
+    <Route path="configuration" element={<ConfigurationDashboardPage />} />
+  </Route>
+</Routes>
+```
+
+## Styling
+
+SnackBase uses **TailwindCSS 4** with the new `@tailwindcss/vite` plugin.
+
+### Theme Configuration
+
+Theme is configured in `src/App.css`:
+
+```css
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+}
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+}
+```
+
+### Common Patterns
+
+| Pattern | Classes | Usage |
+|---------|---------|-------|
+| Card | `bg-white rounded-lg shadow-sm border p-6` | Container for content |
+| Button Group | `flex gap-2` | Horizontal button layout |
+| Grid | `grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4` | Responsive grid |
+| Section Spacing | `space-y-4` | Vertical spacing |
+
+## Development Workflow
+
+### Environment Setup
+
+Create a `.env` file in the `ui` directory:
+
+```bash
+VITE_API_BASE_URL=/api/v1
+```
+
+### Running the Dev Server
+
+```bash
+cd ui
+npm run dev
+```
+
+The Vite dev server starts at `http://localhost:5173` with:
+- Hot Module Replacement (HMR)
+- Fast refresh
+- TypeScript checking
+
+### Build for Production
+
+```bash
+cd ui
+npm run build
+```
+
+## Best Practices
+
+### 1. Component Organization
+- Keep components focused and single-purpose
+- Extract reusable logic into custom hooks
+- Co-locate related components in feature folders
+
+### 2. Type Safety
+- Always define TypeScript interfaces for API responses
+- Use Zod schemas for runtime validation
+- Avoid `any` type - use `unknown` if truly unknown
+
+### 3. Error Handling
+- Always handle loading and error states from TanStack Query
+- Show user-friendly error messages
+- Use the `handleApiError()` utility from `lib/api.ts`
+
+### 4. Performance
+- Use TanStack Query's caching to avoid redundant requests
+- Implement pagination for large datasets
+- Lazy load components with React.lazy()
+
+## Related Guides
+
+- [API Examples](../api-examples)
+- [Architecture](../architecture)

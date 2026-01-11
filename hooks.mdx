@@ -1,0 +1,452 @@
+---
+title: "Hook System Reference"
+description: "Complete reference for the SnackBase Hook System v1.0 - a stable extensibility framework"
+---
+
+**Version**: 1.0 (Stable API)
+**Status**: Production Ready
+
+## Overview
+
+The SnackBase Hook System is an **extensibility framework** that allows developers to inject custom logic at specific points in the application lifecycle. It provides a stable, event-driven API for extending SnackBase without modifying core code.
+
+### Key Features
+
+- **Event-Driven Architecture**: Subscribe to lifecycle events
+- **Priority-Based Execution**: Control hook execution order
+- **Tag-Based Filtering**: Target specific collections or resources
+- **Before/After Hooks**: Modify data or react to changes
+- **Built-in Hooks**: Core functionality (timestamps, account isolation)
+- **Abort Capability**: Cancel operations from before hooks
+- **Async Support**: Full async/await support
+- **Stable API**: Guaranteed backward compatibility
+
+<Check>
+  The Hook System API is stable and follows semantic versioning. Breaking changes will only occur in major version releases.
+</Check>
+
+## Stable API Contract
+
+### Guaranteed Stability
+
+**Stable (will not change)**:
+
+- `HookRegistry.register()` method signature
+- `HookRegistry.trigger()` method signature
+- `HookRegistry.unregister()` method signature
+- `HookContext` dataclass structure
+- `AbortHookException` behavior
+- Hook event naming convention
+- Priority-based execution order
+- Tag-based filtering mechanism
+- Built-in hook behavior
+
+**Additive Changes (non-breaking)**:
+
+- New hook events
+- New hook categories
+- New `HookContext` fields (optional)
+- New built-in hooks
+- New utility functions
+
+## Hook Categories
+
+Hooks are organized into **8 categories**:
+
+| Category                  | Description                  | Examples                                                    |
+| ------------------------- | ---------------------------- | ----------------------------------------------------------- |
+| **App Lifecycle**         | Application startup/shutdown | `on_bootstrap`, `on_serve`, `on_terminate`                  |
+| **Model Operations**      | Internal SQLAlchemy models   | `on_model_before_create`, `on_model_after_update`           |
+| **Record Operations**     | Dynamic collection records   | `on_record_before_create`, `on_record_after_delete`         |
+| **Collection Operations** | Schema changes               | `on_collection_before_create`, `on_collection_after_update` |
+| **Auth Operations**       | Authentication events        | `on_auth_after_login`, `on_auth_before_register`            |
+| **Request Processing**    | HTTP request lifecycle       | `on_before_request`, `on_after_request`                     |
+| **Realtime**              | WebSocket/SSE events         | `on_realtime_connect`, `on_realtime_message`                |
+| **Mailer**                | Email sending                | `on_mailer_before_send`, `on_mailer_after_send`             |
+
+## Hook Events
+
+### Naming Convention
+
+All hook events follow a consistent pattern:
+
+```
+on_<category>_<timing>_<operation>
+
+Examples:
+- on_record_before_create
+- on_auth_after_login
+- on_collection_before_delete
+```
+
+**Timing**:
+
+- `before_*`: Called before operation (can modify data or abort)
+- `after_*`: Called after successful operation (read-only, side effects)
+
+### Complete Event List
+
+#### Record Operations (Dynamic Collections)
+
+| Event                     | Timing | Can Modify | Can Abort |
+| ------------------------- | ------ | ---------- | --------- |
+| `on_record_before_create` | Before | Yes        | Yes       |
+| `on_record_after_create`  | After  | No         | No        |
+| `on_record_before_update` | Before | Yes        | Yes       |
+| `on_record_after_update`  | After  | No         | No        |
+| `on_record_before_delete` | Before | No         | Yes       |
+| `on_record_after_delete`  | After  | No         | No        |
+| `on_record_before_query`  | Before | Yes        | Yes       |
+| `on_record_after_query`   | After  | Yes        | No        |
+
+#### Auth Operations
+
+| Event                           | Timing | Can Modify | Can Abort |
+| ------------------------------- | ------ | ---------- | --------- |
+| `on_auth_before_login`          | Before | Yes        | Yes       |
+| `on_auth_after_login`           | After  | No         | No        |
+| `on_auth_before_register`       | Before | Yes        | Yes       |
+| `on_auth_after_register`        | After  | No         | No        |
+| `on_auth_before_logout`         | Before | No         | Yes       |
+| `on_auth_after_logout`          | After  | No         | No        |
+| `on_auth_before_password_reset` | Before | Yes        | Yes       |
+| `on_auth_after_password_reset`  | After  | No         | No        |
+
+#### Collection Operations
+
+| Event                         | Timing | Can Modify | Can Abort |
+| ----------------------------- | ------ | ---------- | --------- |
+| `on_collection_before_create` | Before | Yes        | Yes       |
+| `on_collection_after_create`  | After  | No         | No        |
+| `on_collection_before_update` | Before | Yes        | Yes       |
+| `on_collection_after_update`  | After  | No         | No        |
+| `on_collection_before_delete` | Before | No         | Yes       |
+| `on_collection_after_delete`  | After  | No         | No        |
+
+## Usage Guide
+
+### Decorator Registration (Recommended)
+
+```python
+from snackbase.core.hooks import HookEvent
+
+@app.state.hook.on_record_before_create("posts", priority=100)
+async def validate_post(event, data, context):
+    """Validate post before creation."""
+    if data and len(data.get("title", "")) < 5:
+        from snackbase.domain.entities.hook_context import AbortHookException
+        raise AbortHookException("Title must be at least 5 characters")
+    return data
+```
+
+### Available Decorator Methods
+
+**Record Operations:**
+- `on_record_before_create(collection, priority=0)`
+- `on_record_after_create(collection, priority=0)`
+- `on_record_before_update(collection, priority=0)`
+- `on_record_after_update(collection, priority=0)`
+- `on_record_before_delete(collection, priority=0)`
+- `on_record_after_delete(collection, priority=0)`
+- `on_record_before_query(collection, priority=0)`
+- `on_record_after_query(collection, priority=0)`
+
+**Collection Operations:**
+- `on_collection_before_create(priority=0)`
+- `on_collection_after_create(priority=0)`
+- `on_collection_before_update(priority=0)`
+- `on_collection_after_update(priority=0)`
+- `on_collection_before_delete(priority=0)`
+- `on_collection_after_delete(priority=0)`
+
+**Auth Operations:**
+- `on_auth_before_login(priority=0)`
+- `on_auth_after_login(priority=0)`
+- `on_auth_before_register(priority=0)`
+- `on_auth_after_register(priority=0)`
+
+### HookContext Structure
+
+```python
+@dataclass
+class HookContext:
+    """Context passed to hooks."""
+    app: Any                      # FastAPI app instance
+    user: Optional["User"]        # Current authenticated user
+    account_id: Optional[str]     # Current account ID
+    request_id: str               # Request correlation ID
+    request: Optional["Request"]  # FastAPI/Starlette Request object
+    ip_address: Optional[str]     # Client IP address
+    user_agent: Optional[str]     # Client user agent
+    user_name: Optional[str]      # User display name
+```
+
+### Aborting Operations
+
+Use `AbortHookException` to cancel an operation from a `before_*` hook:
+
+```python
+from snackbase.domain.entities.hook_context import AbortHookException
+
+@app.state.hook.on_record_before_create("posts")
+async def validate_post(event, data, context):
+    """Prevent spam posts."""
+    if data and "spam" in data.get("content", "").lower():
+        raise AbortHookException("Spam content detected")
+    return data
+```
+
+## Built-in Hooks
+
+SnackBase includes **4 built-in hooks** that provide core functionality. These hooks are **always active** and cannot be disabled.
+
+### 1. Timestamp Hook
+
+**Purpose**: Automatically set `created_at` and `updated_at` timestamps.
+
+**Events**: `on_record_before_create`, `on_record_before_update`
+
+**Priority**: `-100` (runs early)
+
+### 2. Account Isolation Hook
+
+**Purpose**: Enforce multi-tenancy by setting `account_id` from context.
+
+**Events**: `on_record_before_create`
+
+**Priority**: `-200` (runs very early)
+
+### 3. Created By Hook
+
+**Purpose**: Track which user created/updated records.
+
+**Events**: `on_record_before_create`, `on_record_before_update`
+
+**Priority**: `-150`
+
+### 4. Audit Capture Hook
+
+**Purpose**: Automatically capture audit log entries for record operations.
+
+**Events**: `on_record_after_create`, `on_record_after_update`, `on_record_after_delete`
+
+**Priority**: `100` (runs after all user hooks)
+
+### Built-in Hook Execution Order
+
+```
+Priority -200: account_isolation_hook  (set account_id)
+    ↓
+Priority -150: created_by_hook         (set created_by/updated_by)
+    ↓
+Priority -100: timestamp_hook          (set timestamps)
+    ↓
+Priority 0+:   User hooks              (custom logic)
+    ↓
+Priority 100:  audit_capture_hook      (capture audit logs)
+```
+
+## Creating Custom Hooks
+
+### Example 1: Data Validation
+
+```python
+from snackbase.domain.entities.hook_context import AbortHookException
+
+@app.state.hook.on_record_before_create("products", priority=50)
+async def validate_product_price(event, data, context):
+    """Ensure product price is positive."""
+    if data and data.get("price", 0) <= 0:
+        raise AbortHookException("Price must be greater than 0")
+    return data
+```
+
+### Example 2: Data Transformation
+
+```python
+@app.state.hook.on_record_before_create("users", priority=50)
+async def normalize_email(event, data, context):
+    """Normalize email to lowercase."""
+    if data and "email" in data:
+        data["email"] = data["email"].lower().strip()
+    return data
+```
+
+### Example 3: Computed Fields
+
+```python
+@app.state.hook.on_record_before_create("orders", priority=50)
+async def calculate_total(event, data, context):
+    """Calculate order total from line items."""
+    if data and "items" in data:
+        total = sum(item["price"] * item["quantity"] for item in data["items"])
+        data["total"] = total
+    return data
+```
+
+### Example 4: Notifications
+
+```python
+@app.state.hook.on_record_after_create("orders", priority=50)
+async def send_order_notification(event, data, context):
+    """Send email notification when order is created."""
+    if data:
+        await send_email(
+            to=context.user.email,
+            subject="Order Confirmation",
+            body=f"Your order {data['id']} has been created."
+        )
+    return data
+```
+
+## Advanced Features
+
+### Priority-Based Execution
+
+Hooks execute in **priority order** (higher priority = earlier execution):
+
+```python
+# Priority 200 - runs first
+@app.state.hook.on_record_before_create("posts", priority=200)
+async def hook_1(event, data, context):
+    data["step"] = "1"
+    return data
+
+# Priority 100 - runs second
+@app.state.hook.on_record_before_create("posts", priority=100)
+async def hook_2(event, data, context):
+    data["step"] = "2"
+    return data
+
+# Priority 0 (default) - runs last
+@app.state.hook.on_record_before_create("posts")
+async def hook_3(event, data, context):
+    data["step"] = "3"
+    return data
+```
+
+### Tag-Based Filtering
+
+Target specific collections or resources:
+
+```python
+# Only for 'posts' collection
+registry.register(
+    event=HookEvent.ON_RECORD_BEFORE_CREATE,
+    callback=my_hook,
+    filters={"collection": "posts"}
+)
+```
+
+### Error Handling
+
+Hooks can fail without crashing the system:
+
+```python
+# Default: errors are logged but don't stop execution
+registry.register(
+    event=HookEvent.ON_RECORD_AFTER_CREATE,
+    callback=my_hook,
+    stop_on_error=False  # Default
+)
+```
+
+## Best Practices
+
+### 1. Keep Hooks Focused
+
+```python
+# Bad - does too much
+async def mega_hook(event, data, context):
+    validate_data(data)
+    send_email(data)
+    update_cache(data)
+    return data
+
+# Good - single responsibility
+async def validate_data_hook(event, data, context):
+    validate_data(data)
+    return data
+```
+
+### 2. Use Appropriate Priorities
+
+```python
+# Validation: High priority (runs early)
+@app.state.hook.on_record_before_create("posts", priority=100)
+async def validate(event, data, context):
+    pass
+
+# Enrichment: Medium priority
+@app.state.hook.on_record_before_create("posts", priority=50)
+async def enrich(event, data, context):
+    pass
+
+# Side effects: Low priority (runs late)
+@app.state.hook.on_record_after_create("posts", priority=10)
+async def notify(event, data, context):
+    pass
+```
+
+### 3. Handle Errors Gracefully
+
+```python
+@app.state.hook.on_record_after_create("posts")
+async def send_notification(event, data, context):
+    """Send notification, but don't fail if it errors."""
+    try:
+        await send_email(data)
+    except Exception as e:
+        logger.error("Failed to send notification", error=str(e))
+    return data
+```
+
+## API Reference
+
+### HookRegistry
+
+```python
+class HookRegistry:
+    def register(
+        self,
+        event: str,
+        callback: Callable,
+        filters: Optional[dict[str, Any]] = None,
+        priority: int = 0,
+        stop_on_error: bool = False,
+        is_builtin: bool = False,
+    ) -> str:
+        """Register a hook."""
+
+    async def trigger(
+        self,
+        event: str,
+        data: Optional[dict[str, Any]] = None,
+        context: Optional[HookContext] = None,
+        filters: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
+        """Execute all hooks for an event."""
+
+    def unregister(self, hook_id: str) -> bool:
+        """Remove a registered hook."""
+```
+
+### AbortHookException
+
+```python
+class AbortHookException(Exception):
+    """Raise to abort an operation from a before hook."""
+    def __init__(
+        self,
+        message: str,
+        status_code: int = 400
+    ):
+        super().__init__(message)
+        self.status_code = status_code
+```
+
+## Related Guides
+
+- [Creating Custom Hooks](./creating-custom-hooks)
+- [Testing](./testing)
+- [Extending SnackBase](./extending-snackbase)
