@@ -249,7 +249,7 @@ Account codes are generated **sequentially** from the highest existing code:
 |------------|------------|---------|
 | **id** (UUID) | Foreign keys, `account_id` columns | `WHERE account_id = '550e8400-...'` |
 | **account_code** | Admin UI, support, logs | "Account AB1234" |
-| **slug** | Login URLs, subdomain routing | `ab1234.snackbase.com` or `/api/v1/accounts/acme-corp` |
+| **slug** | Login URLs, subdomain routing | `ab1234.snackbase.dev` or `/api/v1/accounts/acme-corp` |
 | **name** | UI display, emails | "Welcome to Acme Corporation" |
 
 ## System Account vs User Accounts
@@ -330,7 +330,7 @@ When logging in, users must specify their account:
 **Option 1: Account in URL**
 ```
 POST /api/v1/auth/login
-Host: ab1001.snackbase.com  # Account in subdomain
+Host: ab1001.snackbase.dev  # Account in subdomain
 {
   "email": "alice@acme.com",
   "password": "Password1!"

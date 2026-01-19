@@ -1,0 +1,148 @@
+---
+openapi: ws /api/v1/realtime/ws
+---
+
+# WebSocket Endpoint
+
+Connect to this endpoint for real-time updates via WebSocket.
+
+**Connection URL:**
+```
+ws://localhost:8000/api/v1/realtime/ws?token={jwt_token}
+```
+
+## Query Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| token | string | Yes | JWT access token |
+
+## WebSocket Messages
+
+### Subscribe
+
+Subscribe to a collection to receive updates.
+
+```json
+{
+  "action": "subscribe",
+  "collection": "posts",
+  "operations": ["create", "update", "delete"]
+}
+```
+
+### Unsubscribe
+
+Stop receiving updates for a collection.
+
+```json
+{
+  "action": "unsubscribe",
+  "collection": "posts"
+}
+```
+
+### Ping
+
+Send a ping to keep the connection alive.
+
+```json
+{
+  "action": "ping"
+}
+```
+
+## Server Responses
+
+### Subscribe Confirmation
+
+```json
+{
+  "status": "subscribed",
+  "collection": "posts"
+}
+```
+
+### Unsubscribe Confirmation
+
+```json
+{
+  "status": "unsubscribed",
+  "collection": "posts"
+}
+```
+
+### Pong Response
+
+```json
+{
+  "type": "pong"
+}
+```
+
+### Heartbeat
+
+Sent every 30 seconds.
+
+```json
+{
+  "type": "heartbeat",
+  "timestamp": "2026-01-17T12:34:56.789Z"
+}
+```
+
+### Data Event
+
+```json
+{
+  "type": "posts.create",
+  "timestamp": "2026-01-17T12:34:56.789Z",
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "title": "New Post",
+    "created_at": "2026-01-17T12:34:56.789Z"
+  }
+}
+```
+
+## Connection Limits
+
+- Maximum 100 subscriptions per connection
+- Connections closed after 1 hour (token expiration)
+- Heartbeat sent every 30 seconds
+
+## Example
+
+```javascript
+const token = "your_jwt_token";
+const ws = new WebSocket(`ws://localhost:8000/api/v1/realtime/ws?token=${token}`);
+
+ws.onopen = () => {
+  // Subscribe to posts collection
+  ws.send(JSON.stringify({
+    action: "subscribe",
+    collection: "posts",
+    operations: ["create", "update", "delete"]
+  }));
+};
+
+ws.onmessage = (event) => {
+  const message = JSON.parse(event.data);
+
+  if (message.type === "posts.create") {
+    console.log("New post created:", message.data);
+  }
+
+  if (message.type === "heartbeat") {
+    console.log("Heartbeat received");
+  }
+};
+
+ws.onerror = (error) => {
+  console.error("WebSocket error:", error);
+};
+
+ws.onclose = () => {
+  console.log("WebSocket connection closed");
+};
+```

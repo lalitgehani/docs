@@ -74,7 +74,8 @@
               "concepts/multi-tenancy",
               "concepts/collections",
               "concepts/authentication",
-              "concepts/security"
+              "concepts/security",
+              "concepts/realtime"
             ]
           },
           {
@@ -96,6 +97,13 @@
               "api-reference/endpoints/health/health-check",
               "api-reference/endpoints/health/readiness-check",
               "api-reference/endpoints/health/liveness-check"
+            ]
+          },
+          {
+            "group": "Realtime",
+            "pages": [
+              "api-reference/endpoints/realtime/websocket-endpoint",
+              "api-reference/endpoints/realtime/sse-endpoint"
             ]
           },
           {
@@ -126,7 +134,9 @@
               "api-reference/endpoints/collections/get-collection-names",
               "api-reference/endpoints/collections/get-collection",
               "api-reference/endpoints/collections/update-collection",
-              "api-reference/endpoints/collections/delete-collection"
+              "api-reference/endpoints/collections/delete-collection",
+              "api-reference/endpoints/collections/get-collection-rules",
+              "api-reference/endpoints/collections/update-collection-rules"
             ]
           },
           {
@@ -185,15 +195,6 @@
               "api-reference/endpoints/groups/update-a-group",
               "api-reference/endpoints/groups/add-user-to-group",
               "api-reference/endpoints/groups/remove-user-from-group"
-            ]
-          },
-          {
-            "group": "Permissions",
-            "pages": [
-              "api-reference/endpoints/permissions/list-permissions",
-              "api-reference/endpoints/permissions/create-permission",
-              "api-reference/endpoints/permissions/get-permission",
-              "api-reference/endpoints/permissions/delete-permission"
             ]
           },
           {

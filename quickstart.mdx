@@ -17,7 +17,10 @@ Before you begin, ensure you have:
 - **Git** installed (for cloning the repository)
 
 <Note>
-  **Windows Users**: If you don't have Node.js installed, download it from [nodejs.org](https://nodejs.org/). For Python, use the [Microsoft Store](https://apps.microsoft.com/store/detail/python-3-12/9NRWMJP3717K) or [python.org](https://www.python.org/downloads/).
+  **Windows Users**: If you don't have Node.js installed, download it from
+  [nodejs.org](https://nodejs.org/). For Python, use the [Microsoft
+  Store](https://apps.microsoft.com/store/detail/python-3-12/9NRWMJP3717K) or
+  [python.org](https://www.python.org/downloads/).
 </Note>
 
 ## Step 1: Install and Start SnackBase
@@ -25,7 +28,7 @@ Before you begin, ensure you have:
 ### 1.1 Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/snackbase.git
+git clone https://github.com/lalitgehani/snackbase.git
 cd SnackBase
 ```
 
@@ -56,6 +59,7 @@ cp .env.example .env
 ```
 
 For local development, the default values work fine. However, for production, update at minimum:
+
 - `SNACKBASE_SECRET_KEY` - Generate a secure random string
 - `SNACKBASE_DATABASE_URL` - Switch to PostgreSQL
 - `SNACKBASE_CORS_ORIGINS` - Add your frontend URL
@@ -67,6 +71,7 @@ uv run python -m snackbase init-db
 ```
 
 This command:
+
 - Creates the database file at `./sb_data/snackbase.db`
 - Runs Alembic migrations to set up all tables
 - Creates the `system` account (ID: `SY0000`) for superadmin operations
@@ -87,6 +92,7 @@ mailhog
 ```
 
 Then update your `.env`:
+
 ```bash
 # For MailHog (localhost:1025)
 EMAIL_PROVIDER=smtp
@@ -100,6 +106,7 @@ SMTP_FROM=noreply@snackbase.local
 **Option B: Use Resend (Recommended for Production)**
 
 Sign up at [resend.com](https://resend.com) and get an API key:
+
 ```bash
 EMAIL_PROVIDER=resend
 RESEND_API_KEY=re_xxxxxxxxxxxxx
@@ -123,12 +130,15 @@ uv run python -m snackbase create-superadmin
 ```
 
 You'll be prompted to enter:
+
 - Email address (e.g., `admin@example.com`)
 - Password (minimum 8 characters, recommended: mix of letters, numbers, symbols)
 - Password confirmation
 
 <Note>
-  The superadmin account will require email verification if email is configured. You can verify the email via the API or auto-verify superadmin emails in development mode.
+  The superadmin account will require email verification if email is configured.
+  You can verify the email via the API or auto-verify superadmin emails in
+  development mode.
 </Note>
 
 ### 1.8 Start the Backend Server
@@ -138,6 +148,7 @@ uv run python -m snackbase serve
 ```
 
 You should see output indicating the server is running:
+
 ```
 INFO:     Uvicorn running on http://0.0.0.0:8000
 INFO:     Application startup complete.
@@ -153,6 +164,7 @@ npm run dev
 ```
 
 You should see:
+
 ```
 VITE v7.x.x ready in xxx ms
 ➜  Local:   http://localhost:5173/
@@ -171,6 +183,7 @@ http://localhost:5173
 ### 2.1 Enter Your Credentials
 
 On the login page, enter:
+
 - **Account**: `system` (or `SY0000`)
 - **Email**: The superadmin email you created
 - **Password**: The superadmin password you created
@@ -178,7 +191,8 @@ On the login page, enter:
 Click **Sign In**.
 
 <Warning>
-  The superadmin account is always linked to the `system` account (ID: `SY0000`). Use "system" as the account field when logging in.
+  The superadmin account is always linked to the `system` account (ID:
+  `SY0000`). Use "system" as the account field when logging in.
 </Warning>
 
 ### 2.2 Verify Your Email (If Required)
@@ -186,12 +200,14 @@ Click **Sign In**.
 If email verification is enabled, you'll see a message asking you to verify your email.
 
 **For Development with MailHog:**
+
 1. Open `http://localhost:8025` in your browser
 2. Find the verification email
 3. Click the verification link
 
 **To Skip Verification in Development:**
 Use the admin API to verify your email:
+
 ```bash
 # Get your access token first, then:
 curl -X POST http://localhost:8000/api/v1/admin/verify-email \
@@ -203,6 +219,7 @@ curl -X POST http://localhost:8000/api/v1/admin/verify-email \
 ### 2.3 Welcome to the Dashboard
 
 After logging in (and verifying your email if required), you'll see the main dashboard with:
+
 - Sidebar navigation on the left
 - Statistics cards (collections, records, users, etc.)
 - Recent activity or quick actions
@@ -220,6 +237,7 @@ Click **Collections** in the sidebar.
 Click the **+ New Collection** button.
 
 A modal or form will appear. Enter:
+
 - **Name**: `posts` (this will become the API endpoint: `/api/v1/records/posts`)
 - **Description**: `Blog posts and articles` (optional)
 
@@ -231,13 +249,13 @@ After creating the collection, you'll see the collection detail page. Now let's 
 
 Click **+ Add Field** and add the following fields:
 
-| Field Name | Type | Required | Options |
-|------------|------|----------|---------|
-| `title` | Text | Yes | - |
-| `content` | Text | No | Multi-line: Yes |
-| `status` | Select | Yes | Options: `draft`, `published`, `archived` |
-| `published_at` | Date | No | - |
-| `views` | Number | No | Default: `0` |
+| Field Name     | Type   | Required | Options                                   |
+| -------------- | ------ | -------- | ----------------------------------------- |
+| `title`        | Text   | Yes      | -                                         |
+| `content`      | Text   | No       | Multi-line: Yes                           |
+| `status`       | Select | Yes      | Options: `draft`, `published`, `archived` |
+| `published_at` | Date   | No       | -                                         |
+| `views`        | Number | No       | Default: `0`                              |
 
 ## Step 4: Add Your First Records
 
@@ -252,6 +270,7 @@ Click **Records** in the sidebar, then select the **posts** collection.
 Click **+ New Record**.
 
 Fill in the form:
+
 - **title**: `My First Blog Post`
 - **content**: `This is my first post using SnackBase!`
 - **status**: `published`
@@ -267,6 +286,7 @@ After saving, you'll see your record in the data table.
 ### 4.4 Add More Records
 
 Create a few more records to have some test data:
+
 1. "Getting Started with SnackBase" (status: `published`)
 2. "Draft Post About API Design" (status: `draft`)
 3. "Archived Announcement" (status: `archived`)
@@ -282,6 +302,7 @@ Click **Roles** in the sidebar.
 ### 5.2 Understand Default Roles
 
 By default, you'll see:
+
 - **admin** - Full access to all collections and operations
 
 The superadmin user you created has the `admin` role.
@@ -291,6 +312,7 @@ The superadmin user you created has the `admin` role.
 Click **+ New Role**.
 
 Enter:
+
 - **Name**: `editor`
 - **Description**: `Can create and edit posts, but cannot delete`
 
@@ -313,6 +335,7 @@ Click **Save**.
 ### 5.5 Create a Read-Only Role
 
 Repeat the process to create a `viewer` role:
+
 - **Name**: `viewer`
 - **Collection**: `posts`
 - **Read**: Enabled only
@@ -330,6 +353,7 @@ Click **Users** in the sidebar.
 Click **+ New User**.
 
 Enter:
+
 - **Email**: `editor@example.com`
 - **Password**: `EditorPass123!`
 - **Role**: `editor`
@@ -340,6 +364,7 @@ Click **Create**.
 ### 6.3 Create a Viewer User
 
 Repeat to create a viewer user:
+
 - **Email**: `viewer@example.com`
 - **Password**: `ViewerPass123!`
 - **Role**: `viewer`
@@ -351,6 +376,7 @@ SnackBase automatically generates REST APIs for your collections. Let's test it!
 ### 7.1 Get Your Access Token
 
 Open your browser's developer tools:
+
 - Press `F12` or `Cmd+Option+I` (Mac)
 - Go to the **Application** or **Storage** tab
 - Find **Local Storage** → `http://localhost:5173`
@@ -389,6 +415,7 @@ curl -X POST http://localhost:8000/api/v1/records/posts \
 SnackBase includes auto-generated API documentation powered by Swagger UI.
 
 Open in your browser:
+
 ```
 http://localhost:8000/docs
 ```
@@ -400,11 +427,13 @@ Let's verify that the permission system works correctly.
 ### 8.1 Log In as Editor
 
 Open an incognito/private window and navigate to:
+
 ```
 http://localhost:5173
 ```
 
 Log in as:
+
 - **Account**: `system`
 - **Email**: `editor@example.com`
 - **Password**: `EditorPass123!`
@@ -414,6 +443,7 @@ Log in as:
 Navigate to **Records** → **posts**.
 
 You should see:
+
 - Edit buttons on existing records
 - No Delete buttons (editor role cannot delete)
 
@@ -475,6 +505,7 @@ npm run preview    # Preview production build
 **Problem**: `sqlite3.OperationalError: unable to open database file`
 
 **Solution**: Ensure the `sb_data` directory exists and is writable:
+
 ```bash
 mkdir -p sb_data
 chmod 755 sb_data
@@ -489,12 +520,14 @@ chmod 755 sb_data
 **Solution**: Another process is using port 8000. Find and stop it:
 
 **macOS/Linux**:
+
 ```bash
 # Find the process
 lsof -ti:8000 | xargs kill -9
 ```
 
 **Windows**:
+
 ```cmd
 # Find the process
 netstat -ano | findstr :8000
@@ -503,6 +536,7 @@ taskkill /PID PID /F
 ```
 
 Alternatively, change the port in `.env`:
+
 ```bash
 SNACKBASE_PORT=8001
 ```
@@ -512,6 +546,7 @@ SNACKBASE_PORT=8001
 **Problem**: Users can't log in due to unverified email
 
 **Solution**: Manually verify the user via API:
+
 ```bash
 curl -X POST http://localhost:8000/api/v1/admin/verify-email \
   -H "Authorization: Bearer YOUR_SUPERADMIN_TOKEN" \
@@ -522,6 +557,7 @@ curl -X POST http://localhost:8000/api/v1/admin/verify-email \
 **Problem**: Verification emails not being sent
 
 **Solution**: Check your email configuration:
+
 1. Verify email settings in `.env`
 2. If using MailHog, ensure it's running (`mailhog` command)
 3. Check server logs for email errors
@@ -530,26 +566,26 @@ curl -X POST http://localhost:8000/api/v1/admin/verify-email \
 
 SnackBase provides 20+ API routers:
 
-| Router | Endpoints | Description |
-|--------|-----------|-------------|
-| `/api/v1/auth` | Login, register, refresh, me | Authentication |
-| `/api/v1/auth/oauth` | OAuth flow (Google, GitHub, etc.) | OAuth authentication |
-| `/api/v1/auth/saml` | SAML SSO flow | SAML authentication |
-| `/api/v1/accounts` | CRUD operations | Account management |
-| `/api/v1/collections` | CRUD operations | Collection management |
-| `/api/v1/records/{collection}` | CRUD operations | Dynamic collection records |
-| `/api/v1/users` | CRUD operations | User management |
-| `/api/v1/roles` | CRUD, permissions | Role management |
-| `/api/v1/permissions` | CRUD operations | Permission management |
-| `/api/v1/macros` | CRUD, execute | SQL macro management |
-| `/api/v1/groups` | CRUD operations | Group management |
-| `/api/v1/invitations` | Create, accept | User invitations |
-| `/api/v1/dashboard` | Statistics | Dashboard data |
-| `/api/v1/audit-logs` | List, export, filter | Audit log retrieval |
-| `/api/v1/migrations` | Status, history | Alembic migration status |
-| `/api/v1/files` | Upload, download, delete | File management |
-| `/api/v1/admin` | System configuration | Admin controls |
-| `/api/v1/admin/email` | Email templates, settings | Email management |
+| Router                         | Endpoints                         | Description                |
+| ------------------------------ | --------------------------------- | -------------------------- |
+| `/api/v1/auth`                 | Login, register, refresh, me      | Authentication             |
+| `/api/v1/auth/oauth`           | OAuth flow (Google, GitHub, etc.) | OAuth authentication       |
+| `/api/v1/auth/saml`            | SAML SSO flow                     | SAML authentication        |
+| `/api/v1/accounts`             | CRUD operations                   | Account management         |
+| `/api/v1/collections`          | CRUD operations                   | Collection management      |
+| `/api/v1/records/{collection}` | CRUD operations                   | Dynamic collection records |
+| `/api/v1/users`                | CRUD operations                   | User management            |
+| `/api/v1/roles`                | CRUD, permissions                 | Role management            |
+| `/api/v1/permissions`          | CRUD operations                   | Permission management      |
+| `/api/v1/macros`               | CRUD, execute                     | SQL macro management       |
+| `/api/v1/groups`               | CRUD operations                   | Group management           |
+| `/api/v1/invitations`          | Create, accept                    | User invitations           |
+| `/api/v1/dashboard`            | Statistics                        | Dashboard data             |
+| `/api/v1/audit-logs`           | List, export, filter              | Audit log retrieval        |
+| `/api/v1/migrations`           | Status, history                   | Alembic migration status   |
+| `/api/v1/files`                | Upload, download, delete          | File management            |
+| `/api/v1/admin`                | System configuration              | Admin controls             |
+| `/api/v1/admin/email`          | Email templates, settings         | Email management           |
 
 ## Common Gotchas & Tips
 
@@ -562,6 +598,7 @@ When making API requests, your user is always associated with an **account**. Al
 ### Gotcha 2: Collection Names Become URL Endpoints
 
 The collection name you choose becomes part of the API URL:
+
 - Collection `blog-posts` → `/api/v1/records/blog-posts`
 - Collection `posts` → `/api/v1/records/posts`
 
@@ -575,10 +612,10 @@ Every record automatically gets `created_at` and `updated_at` timestamps. You do
 
 ### Gotcha 4: Superadmin vs Admin
 
-| Aspect | Superadmin | Admin (role) |
-|--------|-----------|--------------|
-| Account | `system` (SY0000) | Any account |
-| Access | All accounts | Single account |
+| Aspect  | Superadmin        | Admin (role)   |
+| ------- | ----------------- | -------------- |
+| Account | `system` (SY0000) | Any account    |
+| Access  | All accounts      | Single account |
 
 **Solution**: Use superadmin only for system-level operations. Use admin roles for day-to-day account management.
 

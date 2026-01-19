@@ -1,0 +1,97 @@
+---
+openapi: get /api/v1/realtime/subscribe
+---
+
+# SSE Endpoint
+
+Connect to this endpoint for real-time updates via Server-Sent Events (SSE).
+
+**Connection URL:**
+```
+http://localhost:8000/api/v1/realtime/subscribe?token={jwt_token}&collection=posts
+```
+
+## Query Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| token | string | Yes | JWT access token |
+| collection | string | No | Collection to subscribe to (can be specified multiple times) |
+
+## Server Events
+
+### Heartbeat Event
+
+Sent every 30 seconds to keep the connection alive.
+
+```
+event: heartbeat
+data: {"timestamp": "2026-01-17T12:34:56.789Z"}
+```
+
+### Message Event
+
+Sent when a subscribed collection has data changes.
+
+```
+event: message
+data: {"type": "posts.create", "timestamp": "2026-01-17T12:34:56.789Z", "data": {...}}
+```
+
+## Event Format
+
+All data events follow this structure:
+
+```json
+{
+  "type": "posts.create",
+  "timestamp": "2026-01-17T12:34:56.789Z",
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "title": "New Post",
+    "created_at": "2026-01-17T12:34:56.789Z"
+  }
+}
+```
+
+## Connection Behavior
+
+- Automatic reconnection handled by the browser
+- Token expiration will close the connection
+- Heartbeat sent every 30 seconds
+
+## Example
+
+```javascript
+const token = "your_jwt_token";
+const eventSource = new EventSource(
+  `http://localhost:8000/api/v1/realtime/subscribe?token=${token}&collection=posts`
+);
+
+eventSource.addEventListener("message", (event) => {
+  const message = JSON.parse(event.data);
+
+  if (message.event === "heartbeat") {
+    console.log("Heartbeat received");
+    return;
+  }
+
+  console.log("Event received:", message);
+  // Update your UI
+});
+
+eventSource.onerror = (error) => {
+  console.error("SSE error:", error);
+};
+
+// Close the connection when done
+// eventSource.close();
+```
+
+## Multiple Collections
+
+Subscribe to multiple collections by specifying the `collection` parameter multiple times:
+
+```
+http://localhost:8000/api/v1/realtime/subscribe?token={token}&collection=posts&collection=comments
+```

@@ -1,0 +1,387 @@
+---
+title: "Realtime System"
+description: "WebSocket and Server-Sent Events for live data updates"
+---
+
+SnackBase's **Realtime System** provides live data updates through WebSocket and Server-Sent Events (SSE), enabling your applications to react instantly to database changes without polling.
+
+## Overview
+
+The realtime system broadcasts events when records are created, updated, or deleted in collections. Clients can subscribe to specific collections and receive push notifications as changes occur.
+
+### Key Benefits
+
+- **Instant Updates**: No need to poll the server
+- **Reduced Bandwidth**: Only receive relevant data changes
+- **Account Isolation**: Events never cross account boundaries
+- **Flexible Subscriptions**: Subscribe to specific collections and operations
+- **Dual Protocol Support**: Choose WebSocket or SSE based on your needs
+
+## How It Works
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        Client Layer                         │
+│  ┌──────────────────┐         ┌──────────────────┐        │
+│  │   WebSocket      │         │       SSE         │        │
+│  │   Full-duplex    │         │    One-way       │        │
+│  └────────┬─────────┘         └────────┬─────────┘        │
+└───────────┼──────────────────────────┼─────────────────────┘
+            │                          │
+            └──────────┬───────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────────────┐
+│                   Realtime Router                           │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  ConnectionManager                                   │  │
+│  │  - Active connections                                │  │
+│  │  - Subscriptions per connection                      │  │
+│  │  - Account isolation                                 │  │
+│  └──────────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  EventBroadcaster                                    │  │
+│  │  - Publish events to subscribers                     │  │
+│  │  - Non-blocking async broadcast                      │  │
+│  └──────────────────────────────────────────────────────┘  │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────────────┐
+│                    Record Router                            │
+│  POST /api/v1/records/{collection}                         │
+│  PATCH /api/v1/records/{collection}/{id}                   │
+│  DELETE /api/v1/records/{collection}/{id}                  │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────────────┐
+│                      Database                               │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Event Flow
+
+1. A record is created, updated, or deleted via the REST API
+2. The record operation completes successfully
+3. `EventBroadcaster.publish_event()` is called with the event details
+4. The event is broadcast to all active connections in the same account
+5. Subscribers matching the collection and operation receive the event
+
+## Event Format
+
+All realtime events follow this structure:
+
+```json
+{
+  "type": "posts.create",
+  "timestamp": "2026-01-17T12:34:56.789Z",
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "title": "New Post",
+    "status": "published",
+    "created_at": "2026-01-17T12:34:56.789Z"
+  }
+}
+```
+
+- **type**: `{collection}.{operation}` - The event type
+- **timestamp**: ISO 8601 timestamp of when the event occurred
+- **data**: The full record data after the operation
+
+### Event Types
+
+| Type | Description |
+|------|-------------|
+| `{collection}.create` | A new record was created |
+| `{collection}.update` | An existing record was updated |
+| `{collection}.delete` | A record was deleted |
+
+## WebSocket vs SSE
+
+Choose the protocol that fits your use case:
+
+### WebSocket
+
+Full-duplex communication with bidirectional messaging.
+
+**Best for:**
+- Interactive applications (chat, collaboration)
+- Real-time games
+- Applications that need to send messages to the server
+
+**Advantages:**
+- Lower latency
+- Can send messages to server
+- More control over connection
+
+```javascript
+const ws = new WebSocket(`ws://localhost:8000/api/v1/realtime/ws?token=${token}`);
+
+ws.onopen = () => {
+  ws.send(JSON.stringify({
+    action: "subscribe",
+    collection: "posts"
+  }));
+};
+
+ws.onmessage = (event) => {
+  const message = JSON.parse(event.data);
+  console.log("Event:", message);
+};
+```
+
+### Server-Sent Events (SSE)
+
+One-way communication from server to client over HTTP.
+
+**Best for:**
+- Simple notifications
+- Live dashboards
+- Feed updates
+
+**Advantages:**
+- Simpler implementation
+- Automatic reconnection (handled by browser)
+- Native browser support
+
+```javascript
+const eventSource = new EventSource(
+  `http://localhost:8000/api/v1/realtime/subscribe?token=${token}&collection=posts`
+);
+
+eventSource.addEventListener("message", (event) => {
+  const message = JSON.parse(event.data);
+  console.log("Event:", message);
+});
+```
+
+## Subscriptions
+
+### Subscribing to Collections
+
+**WebSocket:**
+```javascript
+ws.send(JSON.stringify({
+  action: "subscribe",
+  collection: "posts",
+  operations: ["create", "update", "delete"]  // Optional
+}));
+```
+
+**SSE:**
+```
+http://localhost:8000/api/v1/realtime/subscribe?token={token}&collection=posts
+```
+
+### Operation Filtering
+
+Subscribe to specific operations to reduce noise:
+
+```javascript
+ws.send(JSON.stringify({
+  action: "subscribe",
+  collection: "posts",
+  operations: ["create"]  // Only receive create events
+}));
+```
+
+### Multiple Collections
+
+Subscribe to multiple collections by creating multiple subscriptions:
+
+```javascript
+// WebSocket - send multiple subscribe messages
+ws.send(JSON.stringify({ action: "subscribe", collection: "posts" }));
+ws.send(JSON.stringify({ action: "subscribe", collection: "comments" }));
+
+// SSE - specify collection parameter multiple times
+const url = new URL("http://localhost:8000/api/v1/realtime/subscribe");
+url.searchParams.set("token", token);
+url.searchParams.append("collection", "posts");
+url.searchParams.append("collection", "comments");
+
+const eventSource = new EventSource(url);
+```
+
+## Authentication
+
+Realtime connections require authentication via JWT access token.
+
+### Authentication Methods
+
+**Via Query Parameter** (recommended for WebSocket):
+```
+ws://localhost:8000/api/v1/realtime/ws?token=your_jwt_token
+```
+
+**Via Query Parameter** (SSE):
+```
+http://localhost:8000/api/v1/realtime/subscribe?token=your_jwt_token&collection=posts
+```
+
+**Via Authorization Header** (SSE only):
+```
+Authorization: Bearer your_jwt_token
+```
+
+### Token Expiration
+
+When your access token expires (after 1 hour), the connection will be closed. Use your refresh token to obtain a new access token and reconnect.
+
+## Connection Management
+
+### Connection Limits
+
+- **Maximum 100 subscriptions** per WebSocket connection
+- **Heartbeat** sent every 30 seconds
+- **Connection closed** on authentication failure
+
+### Reconnection Strategy
+
+Always implement reconnection logic:
+
+```javascript
+class ReconnectingRealtime {
+  constructor(token) {
+    this.token = token;
+    this.reconnectDelay = 1000;
+    this.maxReconnectDelay = 30000;
+  }
+
+  connect() {
+    this.ws = new WebSocket(`ws://localhost:8000/api/v1/realtime/ws?token=${this.token}`);
+
+    this.ws.onclose = () => {
+      setTimeout(() => {
+        this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay);
+        this.connect();
+      }, this.reconnectDelay);
+    };
+
+    this.ws.onopen = () => {
+      this.reconnectDelay = 1000; // Reset delay
+      // Resubscribe to collections
+    };
+  }
+}
+```
+
+### Heartbeat Handling
+
+Handle heartbeat messages to detect stale connections:
+
+```javascript
+let lastHeartbeat = Date.now();
+
+ws.onmessage = (event) => {
+  const message = JSON.parse(event.data);
+
+  if (message.type === "heartbeat") {
+    lastHeartbeat = Date.now();
+    return;
+  }
+
+  // Process data events
+};
+
+// Check for stale connection
+setInterval(() => {
+  if (Date.now() - lastHeartbeat > 60000) {
+    console.warn("No heartbeat received, reconnecting");
+    ws.close();
+    this.connect();
+  }
+}, 60000);
+```
+
+## Hook Integration
+
+The realtime system integrates with SnackBase's hook system.
+
+### Realtime Hook Events
+
+| Event | Description |
+|-------|-------------|
+| `on_realtime_connect` | Fired when a client connects |
+| `on_realtime_disconnect` | Fired when a client disconnects |
+| `on_realtime_subscribe` | Fired when a client subscribes to a collection |
+| `on_realtime_unsubscribe` | Fired when a client unsubscribes |
+| `on_realtime_message` | Fired when a message is received (WebSocket only) |
+
+### Example: Logging Realtime Events
+
+```python
+@app.hook.on_realtime_connect()
+async def log_realtime_connection(connection_id, user_id, account_id):
+    logger.info(
+        "Realtime connection established",
+        connection_id=connection_id,
+        user_id=user_id,
+        account_id=account_id
+    )
+
+@app.hook.on_realtime_subscribe()
+async def log_subscription(connection_id, user_id, collection):
+    logger.info(
+        "User subscribed to collection",
+        connection_id=connection_id,
+        user_id=user_id,
+        collection=collection
+    )
+```
+
+## Security Considerations
+
+1. **Token Security**: Always use HTTPS in production to protect tokens
+2. **Account Isolation**: Events never cross account boundaries
+3. **Permission Validation**: While realtime broadcasts to all subscribers, your application should validate permissions on the client side
+4. **Token Expiration**: Handle token expiration gracefully and reconnect with a new token
+
+## Best Practices
+
+### 1. Filter Events on the Server
+
+Use the `operations` parameter to filter events server-side:
+
+```javascript
+ws.send(JSON.stringify({
+  action: "subscribe",
+  collection: "posts",
+  operations: ["create", "update"]  // Don't send delete events
+}));
+```
+
+### 2. Use SSE for Simple Use Cases
+
+If you only need to receive events, SSE is simpler:
+- Automatic reconnection handled by browser
+- One-way communication (simpler API)
+- Built-in heartbeat support
+
+### 3. Monitor Connection Health
+
+Handle heartbeat messages to detect stale connections
+
+### 4. Limit Subscriptions
+
+Stay within the 100 subscription limit per connection
+
+### 5. Implement Backoff Reconnection
+
+Use exponential backoff when reconnecting after failures
+
+## API Endpoints
+
+### WebSocket Endpoint
+
+```
+WS /api/v1/realtime/ws
+```
+
+### SSE Endpoint
+
+```
+GET /api/v1/realtime/subscribe
+```
+
+See the [API Reference](/api-reference/endpoints/realtime/websocket-endpoint) for detailed documentation.

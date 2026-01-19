@@ -3,34 +3,26 @@ title: "Writing Permission Rules"
 description: "Learn how to write and use permission rules in SnackBase's rule engine for fine-grained access control"
 ---
 
-This guide explains how to write and use permission rules in SnackBase's rule engine for fine-grained access control.
+SnackBase includes a **powerful rule engine** that compiles expression-based rules into efficient SQL WHERE clauses. This guide explains the syntax, variables, and best practices for writing rules.
 
 ## Overview
 
-SnackBase includes a **powerful rule engine** with a custom DSL (Domain Specific Language) for expressing complex permission logic.
+Rules are **boolean expressions** associated with collection operations (`list`, `view`, `create`, `update`, `delete`).
 
-### What Are Rules?
-
-Rules are **boolean expressions** that determine whether a permission grant allows an operation.
-
-```
-Permission = CRUD flags (create, read, update, delete)
-            + Rules (additional conditions)
-
-Example: "Users can update posts if they created them"
+```python
+# Rule example: Users can only see their own records
+created_by = @request.auth.id
 ```
 
 ### When to Use Rules
 
-Use rules when you need:
-
 | Scenario | Example |
-|----------|---------|
-| **Record ownership** | Users can only edit their own posts |
-| **Status-based access** | Published posts can only be edited by admins |
-| **Time-based access** | Records can only be modified within 24 hours |
-| **Field-value conditions** | High-priority tickets require manager approval |
-| **Complex logic** | Combination of role, ownership, and status |
+| :--- | :--- |
+| **Record ownership** | `created_by = @request.auth.id` |
+| **Role-based access** | `@request.auth.role = "admin"` |
+| **Status-based access** | `status = "published" || @request.auth.role = "admin"` |
+| **Pattern matching** | `email ~ "%@company.com"` |
+| **Complex logic** | `(priority > 5 && @request.auth.role = "manager") || created_by = @request.auth.id` |
 
 ## Rule Syntax
 
@@ -38,490 +30,123 @@ Use rules when you need:
 
 ```python
 # Field comparisons
-user.id == "user_abc123"
-user.email == "admin@example.com"
-record.status == "published"
+@request.auth.id = "user_abc123"
+@request.auth.email = "admin@example.com"
+status = "published"
 
 # Numeric comparisons
-record.views > 1000
-record.priority >= 3
-record.quantity <= 50
+views > 1000
+priority >= 3
+quantity <= 50
 
-# List membership
-status in ["draft", "published", "archived"]
-record.category in ["news", "updates"]
+# Pattern matching (SQL LIKE)
+title ~ "Draft%"  # Starts with Draft
+email ~ "%@gmail.com"  # Ends with @gmail.com
 
 # Negation
-not record.status == "archived"
-record.status != "archived"
+!is_archived
+status != "archived"
 ```
 
 ### Logical Operators
 
-```python
-# AND (both conditions must be true)
-@has_role("editor") and @owns_record()
-status == "draft" and priority < 5
+| Operator | Usage | Description |
+| :--- | :--- | :--- |
+| `&&` | `cond1 && cond2` | Both conditions must be true |
+| `||` | `cond1 || cond1` | At least one condition must be true |
+| `!` | `!condition` | Simple negation |
+| `()` | `(c1 || c2) && c3` | Grouping for precedence |
 
-# OR (at least one condition must be true)
-@has_role("admin") or @owns_record()
-status in ["draft", "pending"] or @has_role("moderator")
-
-# NOT (inverts condition)
-not status == "archived"
-not @has_role("banned")
-
-# Grouping with parentheses
-(@has_role("admin") or @owns_record()) and not status == "locked"
-```
-
-### Operator Precedence
-
-Operators are evaluated in this order (highest to lowest):
-
-1. `()` - Parentheses
-2. `not` - Negation
-3. `==`, `!=`, `>`, `>=`, `<`, `<=`, `in` - Comparisons
-4. `and` - Logical AND
-5. `or` - Logical OR
-
-```python
-# Example: How this is evaluated
-@has_role("admin") or @owns_record() and status == "draft"
-
-# Step 1: AND first (higher precedence)
-(@has_role("admin") or (@owns_record() and status == "draft"))
-
-# Use parentheses to change order
-(@has_role("admin") or @owns_record()) and status == "draft"
-```
-
-## Built-in Functions
-
-### Role Functions
-
-| Function | Description | Example |
-|----------|-------------|---------|
-| `@has_role(role)` | User has specific role | `@has_role("admin")` |
-| `@has_any_role([roles])` | User has any of these roles | `@has_any_role(["admin", "moderator"])` |
-| `@has_all_roles([roles])` | User has all of these roles | `@has_all_roles(["editor", "publisher"])` |
-
-### Ownership Functions
-
-| Function | Description | Example |
-|----------|-------------|---------|
-| `@owns_record()` | Current user created the record | `@owns_record()` |
-| `@is_superadmin()` | User is a superadmin | `@is_superadmin()` |
-
-### Function Examples
-
-```python
-# Single role check
-@has_role("admin")
-
-# Multiple roles (OR logic)
-@has_any_role(["admin", "moderator", "editor"])
-
-# All roles required (AND logic)
-@has_all_roles(["verified", "subscriber"])
-
-# Ownership check
-@owns_record()
-
-# Combined with other conditions
-@owns_record() and record.status in ["draft", "pending"]
-@has_role("admin") or (@owns_record() and not record.locked)
-```
+**Operator Precedence**: `()` > `!` > comparisons > `&&` > `||`
 
 ## Evaluation Context
 
-Rules have access to these variables:
+Rules have access to the following variables:
 
-| Variable | Type | Description | Example Fields |
-|----------|------|-------------|----------------|
-| `user` | dict | Current user | `id`, `email`, `role` |
-| `record` | dict | Record being accessed | All record fields |
-| `context` | dict | Request context | `account_id`, `request_id` |
+### 1. `@request.auth` (Standard)
+| Field | Description |
+| :--- | :--- |
+| `@request.auth.id` | Current user ID |
+| `@request.auth.email` | Current user email |
+| `@request.auth.role` | Current user role |
+| `@request.auth.account_id` | Current account context |
 
-### Accessing User Data
+### 2. `@request.data` (Action-specific)
+Available during **create** and **update** operations.
+- `@request.data.fieldname`: Accesses the value being sent in the request body.
 
-```python
-# User ID
-user.id == "user_abc123"
+Example: `!@request.data.is_admin` (Don't allow setting admin flag via this route).
 
-# User email
-user.email == "admin@example.com"
-user.email.endswith("@domain.com")
+### 3. Record Fields (Direct Access)
+You can reference any field in the record directly by name.
+- `created_by`
+- `status`
+- `your_custom_field`
 
-# User fields (if you add custom fields)
-user.department == "engineering"
-user.location == "remote"
-```
+## Built-in Macros
 
-### Accessing Record Data
-
-```python
-# String fields
-record.title == "Important Post"
-record.category in ["news", "updates"]
-
-# Numeric fields
-record.views > 1000
-record.priority >= 3
-
-# Boolean fields
-record.published == true
-record.archived == false
-
-# Date fields (comparing timestamps)
-record.created_at > "2025-01-01T00:00:00Z"
-
-# Nested JSON fields
-record.metadata.severity == "high"
-record.settings.notifications == true
-```
-
-### Accessing Context
-
-```python
-# Account ID
-context.account_id == "AB1001"
-
-# Request ID (for logging/tracking)
-context.request_id != null
-```
+| Macro | Description | Example |
+| :--- | :--- | :--- |
+| `@has_role(role)` | User has specific role | `@has_role("admin")` |
+| `@has_group(group)` | User has specific group | `@has_group("managers")` |
+| `@owns_record()` | User is the creator | `@owns_record()` |
+| `@is_creator()` | Alias for @owns_record | `@is_creator()` |
 
 ## Rule Examples
 
 ### Example 1: Edit Own Drafts
-
-Users can edit posts they created, but only if the post is in draft status:
-
+Only allow editing if the user is the creator AND the status is "draft".
 ```python
-@owns_record() and record.status == "draft"
+@owns_record() && status = "draft"
 ```
 
 ### Example 2: Admin or Owner
-
-Admins can edit any post. Non-admins can only edit their own:
-
 ```python
-@has_role("admin") or @owns_record()
+@request.auth.role = "admin" || @owns_record()
 ```
 
-### Example 3: Status-Based Access
-
-Published posts are locked - only admins can edit them:
-
+### Example 3: String Pattern Matching
+Allow viewing only if the record type starts with "public".
 ```python
-# For update permission
-not record.status == "published" or @has_role("admin")
-
-# Equivalent to:
-@has_role("admin") or record.status in ["draft", "pending", "archived"]
+type ~ "public%"
 ```
 
-### Example 4: Time-Based Access
-
-Records can only be edited within 24 hours of creation:
-
-```python
-# Note: This requires a custom function or field
-record.hours_since_creation < 24 or @has_role("admin")
-```
-
-### Example 5: Field-Value Conditions
-
-High-priority tickets require manager approval:
-
-```python
-# For update permission
-record.priority < 5 or (@has_role("manager") and record.approved)
-```
-
-### Example 6: Complex Multi-Condition
-
-Combined conditions for document access:
-
+### Example 4: Complex Multi-Condition
 ```python
 # User can edit if:
 # - They're an admin, OR
-# - They own it AND it's not locked, OR
-# - They're an editor AND it's in draft status
-
-@has_role("admin")
-or (@owns_record() and not record.locked)
-or (@has_role("editor") and record.status == "draft")
-```
-
-## Advanced Patterns
-
-### Pattern 1: Role-Based Workflow
-
-Implement approval workflow based on roles:
-
-```python
-# Create permission
-@has_role("author") or @has_role("editor")
-
-# Update permission (draft stage)
-@has_any_role(["author", "editor"]) and record.status == "draft"
-
-# Update permission (review stage)
-@has_role("editor") and record.status == "review"
-
-# Update permission (published stage)
-@has_role("admin") and record.status == "published"
-
-# Delete permission
-@has_role("admin")
-```
-
-### Pattern 2: Escalation Rules
-
-Higher priority items require higher privileges:
-
-```python
-# Priority 1-2: Anyone
-record.priority <= 2
-
-# Priority 3-4: Editors
-record.priority <= 4 and @has_any_role(["editor", "admin"])
-
-# Priority 5+: Admins only
-record.priority >= 5 and @has_role("admin")
-```
-
-### Pattern 3: Department-Based Access
-
-Users can only access records from their department:
-
-```python
-# Assuming user.department field exists
-user.department == record.department or @has_role("admin")
-```
-
-### Pattern 4: Temporary Access
-
-Grant access based on date/time:
-
-```python
-# Assuming record.expires_at field exists
-record.expires_at == null or record.expires_at > now()
-
-# Or for events
-record.event_start <= now() and record.event_end >= now()
-```
-
-### Pattern 5: Field-Specific Rules
-
-Different rules for different fields:
-
-```python
-# For "title" field update
-@has_role("editor") or @owns_record()
-
-# For "status" field update
-@has_role("admin") or (@has_role("editor") and @owns_record())
-
-# For "published_at" field update
-@has_role("admin")
+# - They own it AND it's not locked
+@request.auth.role = "admin" || (@owns_record() && !is_locked)
 ```
 
 ## Testing Rules
 
-### Unit Testing Rules
+### Manual Testing in Admin UI
+SnackBase provides a built-in **Rule Tester** in the Collections settings:
+1. Navigate to **Collections** -> **Edit Collection** -> **Rules**.
+2. Write your rule.
+3. Use the "Test Rule" button to simulate evaluation against a mock user and record.
 
-Test rule logic in isolation:
-
-```python
-# tests/unit/test_rules.py
-import pytest
-from src.snackbase.core.rules.evaluator import RuleEvaluator
-
-@pytest.mark.asyncio
-async def test_owns_record_rule():
-    """Test @owns_record() function."""
-    evaluator = RuleEvaluator()
-
-    # Should pass: user owns record
-    result = await evaluator.evaluate(
-        rule="@owns_record()",
-        user={"id": "user_123"},
-        record={"created_by": "user_123"}
-    )
-    assert result is True
-
-    # Should fail: user doesn't own record
-    result = await evaluator.evaluate(
-        rule="@owns_record()",
-        user={"id": "user_123"},
-        record={"created_by": "user_456"}
-    )
-    assert result is False
+### API Testing
+You can also test rules via the API:
+```bash
+POST /api/v1/roles/test-rule
+{
+  "rule": "@owns_record() && status = 'draft'",
+  "user_id": "usr_123",
+  "record": {"created_by": "usr_123", "status": "draft"}
+}
 ```
-
-### Integration Testing
-
-Test rules in context of API requests:
-
-```python
-# tests/integration/test_permission_rules.py
-import pytest
-
-@pytest.mark.asyncio
-async def test_cannot_update_published_post_as_author(client, author_token):
-    """Test authors cannot update published posts."""
-
-    # Create a published post
-    create_response = await client.post(
-        "/api/v1/posts/",
-        json={"title": "Test", "status": "published"},
-        headers={"Authorization": f"Bearer {author_token}"}
-    )
-    post_id = create_response.json()["id"]
-
-    # Try to update as author (should fail)
-    update_response = await client.put(
-        f"/api/v1/posts/{post_id}",
-        json={"title": "Updated"},
-        headers={"Authorization": f"Bearer {author_token}"}
-    )
-
-    assert update_response.status_code == 403
-```
-
-### Manual Testing with Swagger UI
-
-Use Swagger UI at `http://localhost:8000/docs` to test rules interactively:
-
-1. Create test users with different roles
-2. Create test records with different states
-3. Try operations with different users
-4. Verify rules work as expected
 
 ## Best Practices
 
-### 1. Keep Rules Simple
-
-Complex rules are hard to understand and maintain:
-
-```python
-# BAD: Hard to understand
-@has_role("a") or (@has_role("b") and record.x == 1) or (@has_role("c") and not @has_role("d") and record.y in [1,2])
-
-# GOOD: Clear and logical
-@has_role("admin")
-or (@has_role("editor") and record.status == "draft")
-or (@has_role("reviewer") and record.status == "review")
-```
-
-### 2. Use Parentheses for Clarity
-
-Always use parentheses when combining operators:
-
-```python
-# AMBIGUOUS: What does this mean?
-@has_role("admin") or @owns_record() and record.status == "draft"
-
-# CLEAR: Intent is obvious
-(@has_role("admin") or @owns_record()) and record.status == "draft"
-```
-
-### 3. Test All Branches
-
-Ensure all logical paths are tested:
-
-```python
-# Rule with multiple conditions
-@has_role("admin") or (@owns_record() and record.status == "draft")
-
-# Test cases:
-# 1. Admin + any status → Should pass
-# 2. Owner + draft → Should pass
-# 3. Owner + published → Should fail
-# 4. Non-owner + any status → Should fail
-```
-
-### 4. Document Complex Rules
-
-Add comments explaining business logic:
-
-```python
-# Business rule: Published content is locked
-# - Admins can always edit (emergency fixes)
-# - Original authors can edit if not locked
-# - Editors can edit draft content only
-@has_role("admin")
-or (@owns_record() and not record.locked)
-or (@has_role("editor") and record.status == "draft")
-```
-
-### 5. Use Wildcards Carefully
-
-Wildcard permissions with rules can be powerful but dangerous:
-
-```python
-# CAUTION: This applies to ALL collections
-{
-  "collection": "*",
-  "delete": @has_role("admin")  # Only admins can delete ANYTHING
-}
-
-# SAFER: Be explicit
-{
-  "collection": "posts",
-  "delete": @has_role("admin")
-}
-{
-  "collection": "comments",
-  "delete": @has_role("admin") or @owns_record()
-}
-```
-
-<Warning>
-  Using wildcard permissions (`"collection": "*"`) with rules applies the rule to ALL collections. Use with caution and test thoroughly.
-</Warning>
-
-### 6. Consider Performance
-
-Rules are evaluated on every request. Keep them efficient:
-
-```python
-# SLOW: Multiple nested function calls
-@has_any_role(["admin", "editor", "moderator", "publisher", "reviewer"])
-and not @has_any_role(["banned", "suspended", "pending"])
-and record.status in ["draft", "pending", "review", "published"]
-
-# FASTER: Simplified logic
-@has_role("admin") or (@owns_record() and not record.archived)
-```
-
-### 7. Use Rule Testing Tools
-
-Test rules before deploying:
-
-```bash
-# Test rule evaluation
-uv run python -m snackbase test-rule \
-  --rule "@owns_record() or @has_role('admin')" \
-  --user-id "user_123" \
-  --record '{"created_by": "user_123", "status": "draft"}'
-```
-
-## Summary
-
-| Concept | Key Takeaway |
-|---------|--------------|
-| **Rule Syntax** | Comparisons, logical operators, list membership |
-| **Built-in Functions** | `@has_role()`, `@has_any_role()`, `@owns_record()`, `@is_superadmin()` |
-| **Context Variables** | `user`, `record`, `context` available in rules |
-| **Operator Precedence** | `()` > `not` > comparisons > `and` > `or` |
-| **Common Patterns** | Ownership, role-based, status-based, time-based, workflow |
-| **Best Practices** | Keep simple, use parentheses, test thoroughly, document |
+1. **Keep Rules Simple**: Complex logic is hard to debug. Use **SQL Macros** for complex multi-table checks.
+2. **Use Parentheses**: Always group conditions in complex expressions to ensure correct evaluation order.
+3. **Optimistic Rules**: In SnackBase, rules are compiled to `WHERE` clauses, so they are extremely fast.
+4. **Deny by Default**: If no rule is defined for an operation, access is denied.
 
 ## Related Guides
 
-- [Security Model](/concepts/security)
-- [Permissions Reference](../permissions)
-- [API Examples](../api-examples)
+- [Permissions Concept](/permissions)
+- [SQL Macros Reference](../macros)
+- [API Examples](../api-reference/examples)

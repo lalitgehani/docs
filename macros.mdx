@@ -1,287 +1,109 @@
 ---
-title: "Macros Reference"
-description: "Complete guide to built-in and SQL macros for permission rules in SnackBase"
+title: "SQL Macros"
+description: "Learn how to use SQL Macros to extend SnackBase's rule engine with custom database logic"
 ---
 
-Macros are reusable logic blocks that can be used in Permission Rules. They allow you to encapsulate complex logic, SQL queries, and common patterns into simple function calls.
+SQL Macros allow you to extend the rule expression language by injecting custom SQL queries directly into the permission engine. They are perfect for complex multi-table checks or business logic that requires joining data.
 
-**Important**: Macros are **global** - they are shared across all accounts. Only superadmins can create, update, and delete macros.
+## Overview
+
+A SQL Macro is a predefined SQL fragment that is expanded during rule compilation. It behaves like a boolean function when called in a rule.
+
+```python
+# Rule using a macro
+@is_project_member(project_id)
+```
+
+### Why use SQL Macros?
+
+- **Database performance**: Checks are executed as part of the primary query.
+- **Complexity management**: Move complex logic out of rules and into reusable SQL.
+- **Transactional safety**: Macros execute within the same transaction as the request.
+- **Context awareness**: Macros have access to the currently authenticated user.
+
+## Core Concepts
+
+### 1. Naming
+Macro names must start with `@` when called in a rule, but are defined without it.
+Example: Defined as `owns_record`, called as `@owns_record()`.
+
+### 2. Parameters
+Macros can accept parameters. Use `$1`, `$2`, etc., in your SQL query to reference them.
+Parameters are passed from the rule expression.
+
+### 3. Context Variables
+Macros can also reference context variables directly in the SQL:
+- `@request.auth.id`: Current user ID
+- `@request.auth.account_id`: Current account ID
 
 ## Built-in Macros
 
-SnackBase provides several optimized macros for common scenarios.
+SnackBase comes with several high-performance macros pre-installed:
 
-### `@has_group(group_name: str)`
+| Macro | SQL Equivalent (approx) | Description |
+| :--- | :--- | :--- |
+| `@has_role("name")` | `@request.auth.role = $1` | Checks if user has a specific role |
+| `@has_group("name")` | `EXISTS(SELECT 1 FROM group_members ...)` | Checks group membership |
+| `@owns_record()` | `created_by = @request.auth.id` | Checks if user created the record |
+| `@is_creator()` | `created_by = @request.auth.id` | Alias for @owns_record |
 
-Checks if the current user is a member of the specified group.
+## Creating Custom Macros
 
+### Example: `@is_project_member(project_id)`
+
+1. **Name**: `is_project_member`
+2. **Description**: Checks if a user is a member of a project.
+3. **SQL Query**:
+```sql
+SELECT count(*) > 0
+FROM project_members
+WHERE project_id = $1
+  AND user_id = @request.auth.id
+  AND account_id = @request.auth.account_id
+```
+
+**Usage in Rule**:
 ```python
-@has_group("managers")
+@is_project_member(project_id)
 ```
 
-- **Returns**: `true` if the user is a member of the group, `false` otherwise.
+### Security Constraints
 
-### `@has_role(role_name: str)`
+To ensure system stability, SQL macros are subject to the following rules:
+- **SELECT only**: Only `SELECT` statements are allowed. `INSERT`, `UPDATE`, `DELETE` will be rejected.
+- **Timeout**: Macros have a 5-second execution timeout.
+- **Parameter Binding**: All parameters are bound safely to prevent SQL injection.
+- **Read-Only**: Macros execute in a read-only transaction context.
 
-Checks if the current user has the specified role.
+## API Management
 
-```python
-@has_role("admin")
-```
-
-- **Returns**: `true` if the user has the role, `false` otherwise.
-
-### `@owns_record()`
-
-Checks if the current user ID matches the `owner_id` field on the record.
-
-```python
-@owns_record()
-```
-
-- **Returns**: `true` if `user.id == record.owner_id`, `false` otherwise.
-- **Note**: The field checked is **hardcoded to `owner_id`**.
-
-### `@is_creator()`
-
-Alias for `@owns_record()`. Checks if the current user ID matches the `owner_id` field on the record.
-
-```python
-@is_creator()
-```
-
-### `@has_permission(operation: str, collection: str)`
-
-Checks if the user has permission to perform another operation.
-
-```python
-@has_permission("read", "users")
-```
-
-- **Returns**: `true` if the user is allowed to perform the specified operation on the collection.
-
-### `@in_time_range(start_hour: int, end_hour: int)`
-
-Checks if the current server time is within the specified hour range (24-hour format).
-
-```python
-@in_time_range(9, 17)  # 9 AM to 5 PM
-```
-
-- **Returns**: `true` if current hour is >= start_hour and < end_hour.
-
-## SQL Macros
-
-SQL Macros allow you to define custom logic using raw SQL queries.
-
-### Creating a SQL Macro
-
-To create a macro, use the Macros API (accessible via Admin UI or API).
-
-**Example**: Allow access if the user is a "member" of the "project" associated with the "task" record.
-
-```json
-{
-  "name": "is_project_member",
-  "description": "Check if user is a project member",
-  "parameters": ["project_id"],
-  "sql_query": "SELECT 1 FROM project_members WHERE project_id = :project_id AND user_id = :user_id AND account_id = :account_id AND role = 'member' LIMIT 1"
-}
-```
-
-<Warning>
-  Parameters like `:user_id` and `:account_id` must be explicitly included in your query's WHERE clause. They are available in the execution context but are not automatically injected.
-</Warning>
-
-### Using SQL Macros
-
-Once created, use it in your permission rules like a function:
-
-```python
-@is_project_member(record.project_id)
-```
-
-## Security Features & Constraints
-
-SQL Macros include several security features:
-
-### Query Validation
-
-- **SELECT Only**: Macros must start with `SELECT`
-- **Forbidden Keywords**: `INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `TRUNCATE`, `GRANT`, `REVOKE`, `CREATE`, `ALTER TABLE`, `DROP TABLE`
-- **Parameter Binding**: All parameters use prepared statement binding to prevent SQL injection
-
-### Execution Constraints
-
-- **Timeout**: All macros have a **5-second execution timeout**
-- **Error Handling**: Any error returns `false` rather than exposing database details
-- **Read-Only Execution**: Macros execute within a transaction context designed for read operations
-
-### Deletion Safety
-
-When attempting to delete a macro, the system checks if the macro is currently in use by any permissions. If the macro is referenced, the deletion will be rejected.
-
-## API Endpoints
-
-### List All Macros
-
-```http
-GET /api/v1/macros
-```
-
-- **Access**: All authenticated users
-- **Returns**: List of all macros with their parameters and descriptions
+### List Macros
+`GET /api/v1/macros`
 
 ### Create Macro
+`POST /api/v1/macros`
 
-```http
-POST /api/v1/macros
-```
-
-- **Access**: Superadmin only
-
+**Payload**:
 ```json
 {
-  "name": "is_active_subscriber",
-  "description": "Checks if user has an active subscription",
-  "parameters": [],
-  "sql_query": "SELECT 1 FROM subscriptions WHERE user_id = :user_id AND status = 'active' AND expires_at > NOW() LIMIT 1"
+  "name": "can_edit_document",
+  "description": "Checks if user has editor rights on a document",
+  "sql_query": "SELECT count(*) > 0 FROM doc_access WHERE doc_id = $1 AND user_id = @request.auth.id AND role = 'editor'"
 }
 ```
-
-**Validation**:
-- Name must be a valid Python identifier
-- Name must be unique across all macros
-- SQL query must start with SELECT
-- SQL query cannot contain forbidden keywords
-
-### Update Macro
-
-```http
-PUT /api/v1/macros/{id}
-```
-
-- **Access**: Superadmin only
-- **Note**: Updating a macro affects all permissions that use it immediately
 
 ### Test Macro
+`POST /api/v1/macros/{id}/test`
+Allows testing a macro with specific parameter values before using it in a rule.
 
-```http
-POST /api/v1/macros/{id}/test
-```
+## Best Practices
 
-- **Access**: Superadmin only
-
-```json
-{
-  "parameters": {
-    "project_id": "project_123"
-  }
-}
-```
-
-- **Behavior**: Executes the macro with test parameters using transaction rollback
-- **Returns**: Result of the macro execution (true/false) and any error information
-
-### Delete Macro
-
-```http
-DELETE /api/v1/macros/{id}
-```
-
-- **Access**: Superadmin only
-- **Safety Check**: Fails if the macro is used in any permissions
-
-## Macro Development Guide
-
-### Best Practices
-
-1. **Use SELECT 1**: Always use `SELECT 1` or `SELECT true`. The engine checks if _any_ row is returned.
-2. **Add LIMIT 1**: Always include `LIMIT 1` for performance.
-3. **Index Your Columns**: Ensure columns used in `WHERE` clauses are properly indexed.
-4. **Include Account Isolation**: Always include `account_id = :account_id` in WHERE clauses.
-5. **Keep It Simple**: Use SQL macros for data lookup only.
-6. **Test Before Deploying**: Use the `/test` endpoint to validate macro logic.
-
-### Naming Conventions
-
-- Use descriptive names that indicate what the macro checks
-- Prefix with `is_`, `has_`, `can_`, or similar verbs
-- Examples:
-  - `is_project_member` - Checks membership in a project
-  - `has_active_subscription` - Checks subscription status
-  - `can_access_resource` - Checks resource access rights
-
-### Common Patterns
-
-**Check relationship existence**:
-```sql
-SELECT 1 FROM table_relationships
-WHERE parent_id = :parent_id
-AND user_id = :user_id
-AND account_id = :account_id
-LIMIT 1
-```
-
-**Check status with date validation**:
-```sql
-SELECT 1 FROM subscriptions
-WHERE user_id = :user_id
-AND account_id = :account_id
-AND status = 'active'
-AND (expires_at IS NULL OR expires_at > NOW())
-LIMIT 1
-```
-
-**Check multiple conditions**:
-```sql
-SELECT 1 FROM access_grants
-WHERE resource_id = :resource_id
-AND user_id = :user_id
-AND account_id = :account_id
-AND role IN ['editor', 'owner']
-AND is_active = true
-LIMIT 1
-```
-
-### Example API Payloads
-
-**Create Macro**:
-
-```json
-{
-  "name": "is_active_subscriber",
-  "description": "Checks if user has an active subscription that hasn't expired",
-  "parameters": [],
-  "sql_query": "SELECT 1 FROM subscriptions WHERE user_id = :user_id AND account_id = :account_id AND status = 'active' AND (expires_at IS NULL OR expires_at > NOW()) LIMIT 1"
-}
-```
-
-**Usage in Rule**:
-
-```python
-@is_active_subscriber()
-```
-
-**Create Macro with Parameters**:
-
-```json
-{
-  "name": "has_project_access",
-  "description": "Checks if user has access to a specific project",
-  "parameters": ["project_id"],
-  "sql_query": "SELECT 1 FROM project_members WHERE project_id = :project_id AND user_id = :user_id AND account_id = :account_id LIMIT 1"
-}
-```
-
-**Usage in Rule**:
-
-```python
-@has_project_access(record.project_id)
-```
+1. **Return Booleans**: Custom SQL macros should always return a result that can be interpreted as a boolean (usually `count(*) > 0` or `EXISTS(...)`).
+2. **Index Columns**: Ensure columns used in `WHERE` clauses (like `user_id`, `project_id`) are indexed.
+3. **Account Isolation**: Always include `account_id = @request.auth.account_id` in your queries to maintain proper isolation.
+4. **Descriptive Names**: Use names like `is_subscriber`, `can_approve_invoice` to make rules self-documenting.
 
 ## Related Guides
 
-- [Permissions & Authorization](../permissions)
-- [Writing Rules](./writing-rules)
-- [Security Model](/concepts/security)
+- [Permissions Concept](/permissions)
+- [Writing Rules](./guides/writing-rules)

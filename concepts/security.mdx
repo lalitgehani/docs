@@ -493,6 +493,71 @@ Monitor for suspicious activity:
 }
 ```
 
+## Security Headers
+
+SnackBase implements **defense-in-depth** security by automatically setting HTTP security headers on all responses.
+
+### Automatic Headers
+
+All responses include the following security headers:
+
+| Header | Value | Purpose |
+|--------|-------|----------|
+| **X-Content-Type-Options** | `nosniff` | Prevents MIME type sniffing attacks |
+| **X-Frame-Options** | `DENY` | Prevents clickjacking by blocking iframe embedding |
+| **X-XSS-Protection** | `1; mode=block` | Enables browser XSS protection (legacy browsers) |
+| **Strict-Transport-Security** | `max-age=31536000; includeSubDomains` | Enforces HTTPS (production only) |
+| **Content-Security-Policy** | Configurable | Prevents XSS and injection attacks |
+| **Permissions-Policy** | Configurable | Restricts browser features |
+| **Referrer-Policy** | `strict-origin-when-cross-origin` | Controls referrer information |
+
+### Content Security Policy (CSP)
+
+The default CSP is designed for maximum security while supporting the Admin UI:
+
+```
+default-src 'self'; 
+script-src 'self'; 
+style-src 'self' 'unsafe-inline'; 
+img-src 'self' data:; 
+font-src 'self'; 
+connect-src 'self'; 
+frame-ancestors 'none'
+```
+
+**Key Directives**:
+- `default-src 'self'`: Only load resources from same origin
+- `script-src 'self'`: Block inline scripts and external scripts
+- `style-src 'self' 'unsafe-inline'`: Allow inline styles (for React)
+- `img-src 'self' data:`: Allow images from same origin and data URIs
+- `frame-ancestors 'none'`: Prevent iframe embedding
+
+### Customization
+
+Customize security headers via environment variables:
+
+```bash
+# Customize CSP for external CDN
+SNACKBASE_CSP_POLICY="default-src 'self'; script-src 'self' https://cdn.example.com"
+
+# Adjust HSTS max-age
+SNACKBASE_HSTS_MAX_AGE=63072000  # 2 years
+
+# Customize Permissions Policy
+SNACKBASE_PERMISSIONS_POLICY="geolocation=(), camera=(), microphone=()"
+```
+
+### Environment-Aware Behavior
+
+Security headers adapt to the environment:
+
+| Environment | HSTS Header | HTTPS Redirect |
+|-------------|-------------|----------------|
+| **Development** | ❌ Not set | ❌ Disabled |
+| **Production** | ✅ Set with max-age | ⚙️ Optional (configurable) |
+
+This prevents HSTS issues during local development while enforcing HTTPS in production.
+
 ## Summary
 
 | Concept | Key Takeaway |
