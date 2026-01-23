@@ -1,0 +1,392 @@
+---
+title: "Records Service"
+description: "Perform CRUD operations on dynamic collections"
+---
+
+The Records service provides methods for creating, reading, updating, and deleting records in your SnackBase collections.
+
+## Overview
+
+Records are the actual data stored in your collections. Each record in a collection has the same structure (schema) defined by the collection's fields.
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+});
+
+// Access the records service
+const records = client.records;
+```
+
+## List Records
+
+Get all records from a collection with pagination:
+
+```ts
+const result = await client.records.list("posts");
+
+console.log(result.items); // Array of records
+console.log(result.total); // Total count
+console.log(result.skip);  // Offset
+console.log(result.limit);  // Page size
+```
+
+### With Filtering
+
+```ts
+const result = await client.records.list("posts", {
+  filter: { status: "published" },
+});
+```
+
+### With Sorting
+
+```ts
+// Sort by createdAt descending (newest first)
+const result = await client.records.list("posts", {
+  sort: "-createdAt",
+});
+
+// Sort by multiple fields
+const result = await client.records.list("posts", {
+  sort: "-createdAt,title",
+});
+```
+
+### With Pagination
+
+```ts
+const result = await client.records.list("posts", {
+  skip: 0,
+  limit: 20,
+});
+```
+
+### With Field Selection
+
+```ts
+const result = await client.records.list("posts", {
+  fields: ["id", "title", "createdAt"],
+});
+```
+
+### Combined Example
+
+```ts
+const result = await client.records.list("posts", {
+  filter: { status: "published" },
+  sort: "-createdAt",
+  skip: 0,
+  limit: 20,
+  fields: ["id", "title", "author", "createdAt"],
+});
+```
+
+## Get a Single Record
+
+Retrieve a specific record by ID:
+
+```ts
+const post = await client.records.get("posts", "record-id");
+
+console.log(post.id);
+console.log(post.title);
+console.log(post.content);
+```
+
+### With Field Selection
+
+```ts
+const post = await client.records.get("posts", "record-id", {
+  fields: ["id", "title"],
+});
+```
+
+### With Related Records
+
+```ts
+const post = await client.records.get("posts", "record-id", {
+  expand: ["author", "comments"],
+});
+```
+
+## Create a Record
+
+Create a new record in a collection:
+
+```ts
+const newPost = await client.records.create("posts", {
+  title: "My First Post",
+  content: "This is the content of my post.",
+  status: "published",
+  views: 0,
+});
+
+console.log("Created:", newPost.id);
+```
+
+<Note>
+  The `id`, `createdAt`, and `updatedAt` fields are automatically generated
+  by SnackBase.
+</Note>
+
+## Update a Record
+
+### Full Update (PUT)
+
+Replace all fields of a record:
+
+```ts
+const updated = await client.records.update("posts", "record-id", {
+  title: "Updated Title",
+  content: "Updated content",
+  status: "published",
+  views: 10,
+});
+```
+
+<Warning>
+  Using `update()` replaces all fields. Fields not included will be set to
+  null (unless they have default values).
+</Warning>
+
+### Partial Update (PATCH)
+
+Update only specific fields:
+
+```ts
+const patched = await client.records.patch("posts", "record-id", {
+  views: 15,
+});
+```
+
+<Tip>
+  Use `patch()` for most updates to avoid accidentally clearing fields.
+</Tip>
+
+## Delete a Record
+
+Remove a record from a collection:
+
+```ts
+await client.records.delete("posts", "record-id");
+
+console.log("Record deleted");
+```
+
+## Using the Query Builder
+
+For complex queries, use the fluent query builder:
+
+```ts
+const results = await client.records
+  .query("posts")
+  .select("id", "title", "author.name")
+  .expand("author", "comments")
+  .filter("status", "=", "published")
+  .filter("createdAt", ">=", "2024-01-01")
+  .sort("createdAt", "desc")
+  .page(1, 20)
+  .get();
+
+console.log(results.items);
+```
+
+See the [Query Builder](/sdk/js/query/overview) guide for more details.
+
+## TypeScript Support
+
+Use TypeScript for type-safe record operations:
+
+```ts
+interface Post {
+  id: string;
+  title: string;
+  content: string;
+  status: "draft" | "published" | "archived";
+  views: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Create with type safety
+const newPost = await client.records.create("posts", {
+  title: "My Post",
+  content: "Content",
+  status: "published",
+  views: 0,
+});
+
+// Get with type safety
+const post = await client.records.get("posts", "record-id");
+
+// List with type safety
+const result = await client.records.list("posts");
+```
+
+## Batch Operations
+
+### Create Multiple Records
+
+```ts
+const records = await Promise.all([
+  client.records.create("posts", { title: "Post 1", content: "Content 1" }),
+  client.records.create("posts", { title: "Post 2", content: "Content 2" }),
+  client.records.create("posts", { title: "Post 3", content: "Content 3" }),
+]);
+```
+
+### Update Multiple Records
+
+```ts
+const updates = [
+  { id: "id1", data: { status: "published" } },
+  { id: "id2", data: { status: "published" } },
+  { id: "id3", data: { status: "published" } },
+];
+
+await Promise.all(
+  updates.map(({ id, data }) =>
+    client.records.patch("posts", id, data)
+  )
+);
+```
+
+## Real-Time Updates
+
+Combine with the real-time service for live updates:
+
+```ts
+// Subscribe to collection changes
+await client.realtime.connect();
+await client.realtime.subscribe("posts");
+
+client.realtime.on("posts.create", (data) => {
+  console.log("New post created:", data);
+  // Refresh your local data
+});
+
+client.realtime.on("posts.update", (data) => {
+  console.log("Post updated:", data);
+  // Update your local data
+});
+
+client.realtime.on("posts.delete", (data) => {
+  console.log("Post deleted:", data);
+  // Remove from your local data
+});
+```
+
+## Error Handling
+
+```ts
+import {
+  NotFoundError,
+  ValidationError,
+  AuthenticationError,
+} from "@snackbase/sdk";
+
+try {
+  const post = await client.records.get("posts", "non-existent-id");
+} catch (error) {
+  if (error instanceof NotFoundError) {
+    console.error("Record not found");
+  } else if (error instanceof ValidationError) {
+    console.error("Validation error:", error.fields);
+  } else if (error instanceof AuthenticationError) {
+    console.error("Authentication required");
+  } else {
+    console.error("Unknown error:", error);
+  }
+}
+```
+
+## Reference
+
+### `list(collection, params?)`
+
+List records from a collection.
+
+**Parameters:**
+- `collection` (string) - Collection name
+- `params` (object) - Query parameters
+  - `filter` (object) - Filter expression
+  - `sort` (string) - Sort expression
+  - `skip` (number) - Records to skip
+  - `limit` (number) - Max records to return
+  - `fields` (string[]) - Fields to return
+  - `expand` (string[]) - Relations to expand
+
+**Returns:** `Promise<RecordListResponse>`
+
+### `get(collection, recordId, params?)`
+
+Get a single record by ID.
+
+**Parameters:**
+- `collection` (string) - Collection name
+- `recordId` (string) - Record ID
+- `params` (object) - Query parameters
+  - `fields` (string[]) - Fields to return
+  - `expand` (string[]) - Relations to expand
+
+**Returns:** `Promise<any & BaseRecord>`
+
+### `create(collection, data)`
+
+Create a new record.
+
+**Parameters:**
+- `collection` (string) - Collection name
+- `data` (object) - Record data
+
+**Returns:** `Promise<any & BaseRecord>`
+
+### `update(collection, recordId, data)`
+
+Full update of a record (PUT).
+
+**Parameters:**
+- `collection` (string) - Collection name
+- `recordId` (string) - Record ID
+- `data` (object) - Complete record data
+
+**Returns:** `Promise<any & BaseRecord>`
+
+### `patch(collection, recordId, data)`
+
+Partial update of a record (PATCH).
+
+**Parameters:**
+- `collection` (string) - Collection name
+- `recordId` (string) - Record ID
+- `data` (object) - Fields to update
+
+**Returns:** `Promise<any & BaseRecord>`
+
+### `delete(collection, recordId)`
+
+Delete a record.
+
+**Parameters:**
+- `collection` (string) - Collection name
+- `recordId` (string) - Record ID
+
+**Returns:** `Promise<{ success: boolean }>`
+
+### `query(collection)`
+
+Create a query builder for the collection.
+
+**Parameters:**
+- `collection` (string) - Collection name
+
+**Returns:** `QueryBuilder`
+
+## Next Steps
+
+- **[Query Builder](/sdk/js/query/overview)** - Advanced querying
+- **[Collections](/sdk/js/services/collections)** - Manage collections
+- **[Realtime](/sdk/js/realtime/overview)** - Real-time subscriptions

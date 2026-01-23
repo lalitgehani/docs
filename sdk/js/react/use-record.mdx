@@ -1,0 +1,349 @@
+---
+title: "useRecord Hook"
+description: "Fetch single records in React components"
+---
+
+The `useRecord` hook provides a simple way to fetch a single record from a collection in React components.
+
+## Import
+
+```ts
+import { useRecord } from "@snackbase/sdk/react";
+```
+
+## Usage
+
+```tsx
+function PostDetail({ postId }: { postId: string }) {
+  const { data: post, loading, error, refetch } = useRecord("posts", postId);
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+  if (!post) return <div>Post not found</div>;
+
+  return (
+    <article>
+      <h1>{post.title}</h1>
+      <p>{post.content}</p>
+      <button onClick={refetch}>Refresh</button>
+    </article>
+  );
+}
+```
+
+## Parameters
+
+```ts
+useRecord(
+  collection: string,
+  id: string,
+  options?: UseRecordOptions
+)
+```
+
+| Parameter    | Type              | Required | Description                |
+| ------------ | ----------------- | -------- | -------------------------- |
+| `collection` | `string`          | Yes      | Collection name            |
+| `id`         | `string`          | Yes      | Record ID                  |
+| `options`    | `UseRecordOptions` | No       | Query options               |
+
+## Options
+
+```ts
+interface UseRecordOptions {
+  fields?: string[] | string;
+  expand?: string[] | string;
+}
+```
+
+### Field Selection
+
+```tsx
+function PostTitle({ postId }: { postId: string }) {
+  const { data: post } = useRecord("posts", postId, {
+    fields: ["id", "title"],
+  });
+
+  return <h1>{post?.title}</h1>;
+}
+```
+
+### Expand Relations
+
+```tsx
+function PostWithAuthor({ postId }: { postId: string }) {
+  const { data: post, loading } = useRecord("posts", postId, {
+    expand: ["author", "comments"],
+  });
+
+  if (loading) return <div>Loading...</div>;
+
+  return (
+    <article>
+      <h1>{post?.title}</h1>
+      <p>By {post?.author?.name}</p>
+      <Comments comments={post?.comments} />
+    </article>
+  );
+}
+```
+
+## Return Value
+
+```ts
+interface UseRecordResult {
+  data: (any & BaseRecord) | null;
+  loading: boolean;
+  error: Error | null;
+  refetch: () => Promise<void>;
+}
+```
+
+| Property  | Type                  | Description                    |
+| --------- | --------------------- | ------------------------------ |
+| `data`    | `T \| null`           | The record data or null        |
+| `loading` | `boolean`             | Whether data is loading        |
+| `error`   | `Error \| null`       | Any error that occurred        |
+| `refetch` | `() => Promise<void>` | Function to refetch the record |
+
+## Loading State
+
+```tsx
+function PostDetail({ postId }: { postId: string }) {
+  const { data: post, loading } = useRecord("posts", postId);
+
+  if (loading) {
+    return (
+      <div className="spinner">
+        <div className="animate-spin" />
+        <p>Loading post...</p>
+      </div>
+    );
+  }
+
+  return <PostContent post={post} />;
+}
+```
+
+## Error Handling
+
+```tsx
+function PostDetail({ postId }: { postId: string }) {
+  const { data: post, loading, error } = useRecord("posts", postId);
+
+  if (loading) return <div>Loading...</div>;
+
+  if (error) {
+    return (
+      <div className="error">
+        <h2>Error Loading Post</h2>
+        <p>{error.message}</p>
+        <button onClick={() => window.location.reload()}>Retry</button>
+      </div>
+    );
+  }
+
+  if (!post) {
+    return <div>Post not found</div>;
+  }
+
+  return <PostContent post={post} />;
+}
+```
+
+## Refetching
+
+```tsx
+function PostDetail({ postId }: { postId: string }) {
+  const { data: post, loading, refetch } = useRecord("posts", postId);
+
+  return (
+    <div>
+      {loading ? <p>Loading...</p> : <PostContent post={post} />}
+      <button onClick={refetch} disabled={loading}>
+        Refresh
+      </button>
+    </div>
+  );
+}
+```
+
+## Conditional Fetching
+
+Skip fetching when ID is not provided:
+
+```tsx
+function PostDetail({ postId }: { postId: string | undefined }) {
+  const { data: post, loading } = useRecord("posts", postId || "");
+
+  // Hook won't fetch if postId is empty
+  if (!postId) {
+    return <div>Select a post to view</div>;
+  }
+
+  if (loading) return <div>Loading...</div>;
+
+  return <PostContent post={post} />;
+}
+```
+
+## TypeScript
+
+```tsx
+import type { Post } from "@snackbase/sdk";
+
+function PostDetail({ postId }: { postId: string }) {
+  const { data: post, loading, error } = useRecord<Post>("posts", postId);
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+  if (!post) return <div>Post not found</div>;
+
+  // post is fully typed as Post
+  return (
+    <div>
+      <h1>{post.title}</h1>
+      <p>{post.content}</p>
+      {post.publishedAt && <time>{new Date(post.publishedAt).toLocaleDateString()}</time>}
+    </div>
+  );
+}
+```
+
+## Complete Example
+
+```tsx
+import { useRecord } from "@snackbase/sdk/react";
+import type { Post } from "@snackbase/sdk";
+
+function PostDetail({ postId }: { postId: string }) {
+  const { data: post, loading, error, refetch } = useRecord<Post>("posts", postId, {
+    expand: ["author", "comments"],
+  });
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
+        <span className="ml-2">Loading post...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 bg-red-50 text-red-800 rounded">
+        <h2 className="text-lg font-semibold mb-2">Error Loading Post</h2>
+        <p>{error.message}</p>
+        <button
+          onClick={refetch}
+          className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
+  if (!post) {
+    return (
+      <div className="p-8 text-center">
+        <h2 className="text-xl font-semibold text-gray-700">Post Not Found</h2>
+        <p className="text-gray-500 mt-2">The post you're looking for doesn't exist.</p>
+      </div>
+    );
+  }
+
+  return (
+    <article className="max-w-2xl mx-auto py-8">
+      <header className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">{post.title}</h1>
+        <div className="flex items-center mt-4 text-gray-600">
+          {post.author && (
+            <>
+              <img
+                src={post.author.avatarUrl}
+                alt={post.author.fullName}
+                className="w-8 h-8 rounded-full mr-2"
+              />
+              <span className="font-medium">{post.author.fullName}</span>
+            </>
+          )}
+          {post.publishedAt && (
+            <>
+              <span className="mx-2">•</span>
+              <time>{new Date(post.publishedAt).toLocaleDateString()}</time>
+            </>
+          )}
+        </div>
+      </header>
+
+      <div className="prose prose-lg">
+        {post.content}
+      </div>
+
+      {post.comments && post.comments.length > 0 && (
+        <section className="mt-12">
+          <h2 className="text-xl font-semibold mb-4">Comments</h2>
+          {post.comments.map((comment) => (
+            <div key={comment.id} className="mb-4 pb-4 border-b">
+              <p>{comment.content}</p>
+            </div>
+          ))}
+        </section>
+      )}
+
+      <footer className="mt-8">
+        <button
+          onClick={refetch}
+          className="px-4 py-2 text-blue-600 hover:text-blue-800"
+        >
+          Refresh Post
+        </button>
+      </footer>
+    </article>
+  );
+}
+```
+
+## With useMutation
+
+Combine with `useMutation` for edit functionality:
+
+```tsx
+import { useRecord, useMutation } from "@snackbase/sdk/react";
+
+function EditablePost({ postId }: { postId: string }) {
+  const { data: post, loading, error, refetch } = useRecord("posts", postId);
+  const { mutate: updatePost, isLoading: isUpdating } = useMutation("posts");
+
+  const handleUpdate = async (updates: Partial<Post>) => {
+    await updatePost(postId, updates);
+    refetch();
+  };
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+  if (!post) return <div>Post not found</div>;
+
+  return (
+    <div>
+      <h1>{post.title}</h1>
+      <p>{post.content}</p>
+      <button
+        onClick={() => handleUpdate({ title: "Updated Title" })}
+        disabled={isUpdating}
+      >
+        {isUpdating ? "Updating..." : "Update Title"}
+      </button>
+    </div>
+  );
+}
+```
+
+## Next Steps
+
+- **[React Setup](/sdk/js/react/setup)** - Set up React integration
+- **[useAuth Hook](/sdk/js/react/use-auth)** - Authentication
+- **[useQuery Hook](/sdk/js/react/use-query)** - Build queries
+- **[useMutation Hook](/sdk/js/react/use-mutation)** - Mutations

@@ -1,0 +1,249 @@
+---
+title: "Quick Start"
+description: "Get up and running with the SnackBase JavaScript SDK in minutes"
+---
+
+Get started with the SnackBase JavaScript SDK in this 5-minute guide. You'll learn how to initialize the client, authenticate users, and perform CRUD operations on your collections.
+
+## Prerequisites
+
+- Complete the [Installation](/sdk/js/installation) guide
+- Have a SnackBase instance running with an existing collection
+- Have your API URL ready (e.g., `https://your-project.snackbase.dev`)
+
+## Step 1: Initialize the Client
+
+Create a new SnackBase client instance with your configuration:
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://your-project.snackbase.dev",
+  // Optional: Add an API key for server-side operations
+  apiKey: process.env.SNACKBASE_API_KEY,
+});
+```
+
+<Note>
+  For client-side applications, omit the `apiKey` parameter. Users will
+  authenticate with their own credentials.
+</Note>
+
+## Step 2: Authenticate a User
+
+### Email and Password
+
+```ts
+// Log in with email and password
+const auth = await client.auth.loginWithPassword({
+  account: "your-account-slug",
+  email: "user@example.com",
+  password: "secure-password",
+});
+
+console.log("Logged in as:", auth.user.email);
+console.log("Account:", auth.account.name);
+```
+
+### Register a New User
+
+```ts
+// Register a new user and account
+const result = await client.auth.register({
+  email: "newuser@example.com",
+  password: "secure-password",
+  accountName: "My Account",
+});
+
+console.log("User registered:", result.user.email);
+```
+
+## Step 3: Query Records
+
+### List Records
+
+```ts
+// Get all records from a collection
+const posts = await client.records.list("posts");
+
+console.log("Total:", posts.total);
+console.log("Items:", posts.items);
+
+// With filtering and sorting
+const publishedPosts = await client.records.list("posts", {
+  filter: { status: "published" },
+  sort: "-createdAt",
+  limit: 10,
+});
+```
+
+### Get a Single Record
+
+```ts
+// Get a specific record by ID
+const post = await client.records.get("posts", "record-id");
+
+console.log(post.title);
+console.log(post.content);
+```
+
+### Using the Query Builder
+
+For complex queries, use the fluent query builder:
+
+```ts
+const results = await client.records
+  .query("posts")
+  .select("id", "title", "author.name")
+  .filter("status", "=", "published")
+  .filter("createdAt", ">", "2024-01-01")
+  .sort("createdAt", "desc")
+  .page(1, 20)
+  .get();
+
+console.log(results.items);
+```
+
+## Step 4: Create Records
+
+```ts
+// Create a new record
+const newPost = await client.records.create("posts", {
+  title: "My First Post",
+  content: "This is my first post using SnackBase!",
+  status: "published",
+  views: 0,
+});
+
+console.log("Created post with ID:", newPost.id);
+```
+
+## Step 5: Update Records
+
+### Full Update (PUT)
+
+Replaces all fields of the record:
+
+```ts
+const updated = await client.records.update("posts", "record-id", {
+  title: "Updated Title",
+  content: "Updated content",
+  status: "published",
+  views: 10,
+});
+```
+
+### Partial Update (PATCH)
+
+Updates only the specified fields:
+
+```ts
+const patched = await client.records.patch("posts", "record-id", {
+  views: 15,
+});
+```
+
+<Warning>
+  Use `patch()` for partial updates to avoid overwriting fields you don't
+  intend to change.
+</Warning>
+
+## Step 6: Delete Records
+
+```ts
+await client.records.delete("posts", "record-id");
+console.log("Post deleted");
+```
+
+## Step 7: Real-Time Subscriptions
+
+Subscribe to real-time updates for a collection:
+
+```ts
+// Connect to the real-time service
+await client.realtime.connect();
+
+// Subscribe to collection events
+await client.realtime.subscribe("posts", ["create", "update", "delete"]);
+
+// Listen for events
+client.realtime.on("posts.create", (data) => {
+  console.log("New post created:", data);
+});
+
+client.realtime.on("posts.update", (data) => {
+  console.log("Post updated:", data);
+});
+
+// Unsubscribe when done
+const unsubscribe = client.realtime.on("posts.delete", (data) => {
+  console.log("Post deleted:", data);
+});
+
+// Call unsubscribe() to stop listening
+unsubscribe();
+```
+
+## Complete Example
+
+Here's a complete example combining all concepts:
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+async function main() {
+  // Initialize
+  const client = new SnackBaseClient({
+    baseUrl: "https://your-project.snackbase.dev",
+  });
+
+  // Authenticate
+  const auth = await client.auth.loginWithPassword({
+    account: "my-account",
+    email: "user@example.com",
+    password: "password",
+  });
+
+  console.log("Authenticated as:", auth.user.email);
+
+  // Query with the builder
+  const posts = await client.records
+    .query("posts")
+    .filter("status", "=", "published")
+    .sort("createdAt", "desc")
+    .page(1, 10)
+    .get();
+
+  console.log(`Found ${posts.total} published posts`);
+
+  // Create a new post
+  const newPost = await client.records.create("posts", {
+    title: "Hello, SnackBase!",
+    content: "My first post",
+    status: "published",
+  });
+
+  console.log("Created:", newPost.id);
+
+  // Update the post
+  const updated = await client.records.patch("posts", newPost.id, {
+    views: 1,
+  });
+
+  console.log("Updated:", updated.views);
+
+  // Cleanup
+  await client.records.delete("posts", newPost.id);
+  console.log("Deleted");
+}
+
+main().catch(console.error);
+```
+
+## Next Steps
+
+- **[Query Builder](/sdk/js/query/overview)** - Learn advanced querying
+- **[Realtime](/sdk/js/realtime/overview)** - Build real-time features
+- **[React Integration](/sdk/js/react/setup)** - Use with React applications
+- **[Error Handling](/sdk/js/errors/overview)** - Handle errors gracefully

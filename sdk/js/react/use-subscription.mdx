@@ -1,0 +1,467 @@
+---
+title: "useSubscription Hook"
+description: "Subscribe to real-time updates in React components"
+---
+
+The `useSubscription` hook provides a React interface for real-time subscriptions to collection changes.
+
+## Import
+
+```ts
+import { useSubscription } from "@snackbase/sdk/react";
+```
+
+## Usage
+
+```tsx
+function PostList() {
+  const [posts, setPosts] = useState<Post[]>([]);
+
+  useSubscription("posts", ["create", "update", "delete"], {
+    onCreate: (post) => {
+      setPosts((prev) => [...prev, post]);
+    },
+    onUpdate: (post) => {
+      setPosts((prev) => prev.map((p) => (p.id === post.id ? post : p)));
+    },
+    onDelete: (post) => {
+      setPosts((prev) => prev.filter((p) => p.id !== post.id));
+    },
+  });
+
+  return (
+    <ul>
+      {posts.map((post) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## Parameters
+
+```ts
+useSubscription(
+  collection: string,
+  operations: string[],
+  handlers: SubscriptionHandlers,
+  options?: SubscriptionOptions
+)
+```
+
+| Parameter   | Type                    | Required | Description                  |
+| ----------- | ----------------------- | -------- | ---------------------------- |
+| `collection` | `string`               | Yes      | Collection name              |
+| `operations` | `string[]`             | Yes      | Operations to subscribe to   |
+| `handlers`   | `SubscriptionHandlers`  | Yes      | Event handlers               |
+| `options`    | `SubscriptionOptions`    | No       | Additional options           |
+
+## Handlers
+
+```ts
+interface SubscriptionHandlers {
+  onCreate?: (data: any) => void;
+  onUpdate?: (data: any) => void;
+  onDelete?: (data: any) => void;
+}
+```
+
+| Handler    | Type         | Description                    |
+| ---------- | ------------ | ------------------------------ |
+| `onCreate` | `(data) => void` | Called when record is created |
+| `onUpdate` | `(data) => void` | Called when record is updated |
+| `onDelete` | `(data) => void` | Called when record is deleted |
+
+## Basic Subscription
+
+### Create Events
+
+```tsx
+function LiveFeed() {
+  const [posts, setPosts] = useState<Post[]>([]);
+
+  useSubscription("posts", ["create"], {
+    onCreate: (post) => {
+      setPosts((prev) => [post, ...prev]);
+    },
+  });
+
+  return (
+    <div>
+      <h2>Live Feed</h2>
+      <ul>
+        {posts.map((post) => (
+          <li key={post.id}>{post.title}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+### Update Events
+
+```tsx
+function PostTable() {
+  const [posts, setPosts] = useState<Post[]>([]);
+
+  useEffect(() => {
+    // Initial load
+    client.records.list("posts").then((result) => {
+      setPosts(result.items);
+    });
+  }, []);
+
+  useSubscription("posts", ["update"], {
+    onUpdate: (post) => {
+      setPosts((prev) => prev.map((p) => (p.id === post.id ? post : p)));
+    },
+  });
+
+  return (
+    <table>
+      <tbody>
+        {posts.map((post) => (
+          <tr key={post.id}>
+            <td>{post.title}</td>
+            <td>{post.status}</td>
+            <td>{post.updatedAt}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+```
+
+### Delete Events
+
+```tsx
+function PostList() {
+  const [posts, setPosts] = useState<Post[]>([]);
+
+  useSubscription("posts", ["delete"], {
+    onDelete: (post) => {
+      setPosts((prev) => prev.filter((p) => p.id !== post.id)));
+    },
+  });
+
+  return (
+    <ul>
+      {posts.map((post) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## Multiple Operations
+
+```tsx
+function PostList() {
+  const [posts, setPosts] = useState<Post[]>([]);
+
+  useSubscription("posts", ["create", "update", "delete"], {
+    onCreate: (post) => {
+      setPosts((prev) => [...prev, post]);
+    },
+    onUpdate: (post) => {
+      setPosts((prev) => prev.map((p) => (p.id === post.id ? post : p)));
+    },
+    onDelete: (post) => {
+      setPosts((prev) => prev.filter((p) => p.id !== post.id)));
+    },
+  });
+
+  return <PostListUI posts={posts} />;
+}
+```
+
+## Options
+
+```ts
+interface SubscriptionOptions {
+  enabled?: boolean;
+  initialData?: T[];
+}
+```
+
+### Conditional Subscription
+
+```tsx
+function ConditionalSubscription({ enabled }: { enabled: boolean }) {
+  const [posts, setPosts] = useState<Post[]>([]);
+
+  useSubscription("posts", ["create"], {
+    onCreate: (post) => {
+      setPosts((prev) => [...prev, post]);
+    },
+    enabled,
+  });
+
+  return (
+    <div>
+      <p>Subscription: {enabled ? "Active" : "Inactive"}</p>
+      <ul>
+        {posts.map((post) => (
+          <li key={post.id}>{post.title}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+## With Initial Data
+
+```tsx
+function PostList() {
+  const [posts, setPosts] = useState<Post[]>([]);
+
+  useSubscription("posts", ["create", "update", "delete"], {
+    initialData: posts,
+    onCreate: (post) => {
+      setPosts((prev) => [...prev, post]);
+    },
+    onUpdate: (post) => {
+      setPosts((prev) => prev.map((p) => (p.id === post.id ? post : p)));
+    },
+    onDelete: (post) => {
+      setPosts((prev) => prev.filter((p) => p.id !== post.id)));
+    },
+  });
+
+  return <PostListUI posts={posts} />;
+}
+```
+
+## TypeScript
+
+```tsx
+import type { Post } from "@snackbase/sdk";
+
+function PostList() {
+  const [posts, setPosts] = useState<Post[]>([]);
+
+  useSubscription<Post>("posts", ["create", "update", "delete"], {
+    onCreate: (post) => {
+      // post is fully typed as Post
+      setPosts((prev) => [...prev, post]);
+    },
+    onUpdate: (post) => {
+      setPosts((prev) => prev.map((p) => (p.id === post.id ? post : p)));
+    },
+    onDelete: (post) => {
+      setPosts((prev) => prev.filter((p) => p.id !== post.id)));
+    },
+  });
+
+  return <PostListUI posts={posts} />;
+}
+```
+
+## Connection Status
+
+```tsx
+import { useSnackBase } from "@snackbase/sdk/react";
+
+function ConnectionIndicator() {
+  const client = useSnackBase();
+  const [status, setStatus] = useState("disconnected");
+
+  useEffect(() => {
+    const unsubscribes = [
+      client.realtime.on("connecting", () => setStatus("connecting")),
+      client.realtime.on("connected", () => setStatus("connected")),
+      client.realtime.on("disconnected", () => setStatus("disconnected")),
+    ];
+
+    return () => {
+      unsubscribes.forEach((fn) => fn());
+    };
+  }, [client]);
+
+  const colors = {
+    connected: "bg-green-500",
+    connecting: "bg-yellow-500",
+    disconnected: "bg-red-500",
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className={`w-2 h-2 rounded-full ${colors[status]}`} />
+      <span className="capitalize">{status}</span>
+    </div>
+  );
+}
+```
+
+## Complete Example
+
+```tsx
+import { useState, useEffect } from "react";
+import { useSubscription, useSnackBase } from "@snackbase/sdk/react";
+import type { Post } from "@snackbase/sdk";
+
+function LivePostFeed() {
+  const client = useSnackBase();
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [connectionStatus, setConnectionStatus] = useState<
+    "disconnected" | "connecting" | "connected"
+  >("disconnected");
+
+  // Initial data load
+  useEffect(() => {
+    async function loadPosts() {
+      const result = await client.records.list<Post>("posts", {
+        filter: { status: "published" },
+        sort: "-createdAt",
+        limit: 50,
+      });
+      setPosts(result.items);
+    }
+    loadPosts();
+  }, [client]);
+
+  // Real-time subscription
+  useSubscription<Post>("posts", ["create", "update", "delete"], {
+    onCreate: (post) => {
+      if (post.status === "published") {
+        setPosts((prev) => [post, ...prev].slice(0, 50));
+      }
+    },
+    onUpdate: (post) => {
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === post.id && post.status === "published" ? post : p
+        )
+      );
+    },
+    onDelete: (post) => {
+      setPosts((prev) => prev.filter((p) => p.id !== post.id)));
+    },
+  });
+
+  // Connection status
+  useEffect(() => {
+    const unsubscribes = [
+      client.realtime.on("connecting", () => setConnectionStatus("connecting")),
+      client.realtime.on("connected", () => setConnectionStatus("connected")),
+      client.realtime.on("disconnected", () => setConnectionStatus("disconnected")),
+    ];
+
+    // Connect on mount
+    client.realtime.connect().catch(console.error);
+
+    return () => {
+      unsubscribes.forEach((fn) => fn());
+      client.realtime.disconnect();
+    };
+  }, [client]);
+
+  const statusColors = {
+    connected: "bg-green-500",
+    connecting: "bg-yellow-500",
+    disconnected: "bg-red-500",
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto p-6">
+      <header className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">Live Feed</h1>
+        <div className="flex items-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${statusColors[connectionStatus]}`} />
+          <span className="capitalize text-sm text-gray-600">
+            {connectionStatus}
+          </span>
+        </div>
+      </header>
+
+      <div className="space-y-4">
+        {posts.length === 0 ? (
+          <p className="text-center text-gray-500">No posts yet</p>
+        ) : (
+          posts.map((post) => (
+            <article key={post.id} className="p-4 border rounded hover:shadow">
+              <h2 className="text-xl font-semibold">{post.title}</h2>
+              <p className="text-gray-600 mt-2">{post.content}</p>
+              <div className="flex items-center gap-4 mt-4 text-sm text-gray-500">
+                <span>{post.views} views</span>
+                <time>{new Date(post.createdAt).toLocaleString()}</time>
+                <span className={`px-2 py-1 rounded ${
+                  post.status === "published"
+                    ? "bg-green-100 text-green-800"
+                    : "bg-gray-100 text-gray-800"
+                }`}>
+                  {post.status}
+                </span>
+              </div>
+            </article>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+```
+
+## Best Practices
+
+### 1. Clean Up Subscriptions
+
+The hook automatically cleans up on unmount:
+
+```tsx
+useSubscription("posts", ["create"], {
+  onCreate: (post) => {
+    setPosts((prev) => [...prev, post]);
+  },
+});
+// Unsubscribe happens automatically when component unmounts
+```
+
+### 2. Handle Connection State
+
+Show connection status to users:
+
+```tsx
+const [status, setStatus] = useState("disconnected");
+
+useEffect(() => {
+  const unsubscribes = [
+    client.realtime.on("connected", () => setStatus("connected")),
+    client.realtime.on("disconnected", () => setStatus("disconnected")),
+  ];
+  return () => unsubscribes.forEach((fn) => fn());
+}, [client]);
+
+return (
+  <div>
+    {status === "connected" ? <LiveFeed /> : <OfflineMessage />}
+  </div>
+);
+```
+
+### 3. Limit Subscriptions
+
+Only subscribe to what you need:
+
+```tsx
+// Good - specific operations
+useSubscription("posts", ["create"], {
+  onCreate: (post) => handleNewPost(post),
+});
+
+// Avoid - all operations if you only need create
+useSubscription("posts", ["create", "update", "delete"], {
+  onCreate: (post) => handleNewPost(post),
+});
+```
+
+## Next Steps
+
+- **[React Setup](/sdk/js/react/setup)** - Set up React integration
+- **[useAuth Hook](/sdk/js/react/use-auth)** - Authentication
+- **[Realtime Overview](/sdk/js/realtime/overview)** - Real-time concepts

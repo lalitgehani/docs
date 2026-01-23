@@ -1,0 +1,365 @@
+---
+title: "API Key Authentication"
+description: "Use API keys for server-to-server authentication"
+---
+
+API keys provide a secure way to authenticate server-to-server requests without requiring a user session. This guide explains how to use API keys with the SnackBase JavaScript SDK.
+
+## What are API Keys?
+
+API keys are long-lived credentials that allow your server to authenticate with SnackBase without requiring a user login flow. They're ideal for:
+
+- Backend services and cron jobs
+- Webhook endpoints
+- Server-side data processing
+- Automated scripts
+
+<Warning>
+  API keys should only be used on the server side. Never expose API keys in
+  client-side code or public repositories.
+</Warning>
+
+## Setting Up API Keys
+
+### Generate an API Key
+
+1. Log in to your SnackBase admin panel
+2. Navigate to **API Keys**
+3. Click **+ New API Key**
+4. Enter a description (e.g., "Production API")
+5. Copy the generated key
+
+<Note>
+  API keys are only shown once at creation. Store them securely in your
+  environment variables.
+</Note>
+
+## Using API Keys
+
+### Basic Usage
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+  apiKey: process.env.SNACKBASE_API_KEY,
+});
+
+// All requests will now use the API key
+const posts = await client.records.list("posts");
+```
+
+### Environment Variables
+
+Store your API key in environment variables:
+
+```bash
+# .env
+SNACKBASE_API_KEY=sbak_live_xxxxxxxxxxxxx
+```
+
+```ts
+const client = new SnackBaseClient({
+  baseUrl: process.env.SNACKBASE_URL!,
+  apiKey: process.env.SNACKBASE_API_KEY!,
+});
+```
+
+### Different Keys for Different Environments
+
+Use different API keys for different environments:
+
+```bash
+# .env.development
+SNACKBASE_API_KEY=sbak_test_xxxxxxxxxxxxx
+SNACKBASE_URL=http://localhost:8000
+
+# .env.production
+SNACKBASE_API_KEY=sbak_live_xxxxxxxxxxxxx
+SNACKBASE_URL=https://api.example.com
+```
+
+## API Key vs User Authentication
+
+| Feature           | API Key                      | User Authentication       |
+| ----------------- | ---------------------------- | ------------------------- |
+| Use Case          | Server-to-server             | End-user requests         |
+| Token Type        | Long-lived                   | Short-lived (15 minutes)  |
+| Permissions       | Full account access          | Role-based                |
+| Rate Limits       | Higher limits                | Standard limits           |
+| Location          | Server only                  | Client + Server           |
+| User Context      | None (service account)       | Specific user             |
+
+## Server-Side Operations
+
+### Express.js Example
+
+```ts
+import express from "express";
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const app = express();
+const client = new SnackBaseClient({
+  baseUrl: process.env.SNACKBASE_URL!,
+  apiKey: process.env.SNACKBASE_API_KEY!,
+});
+
+app.get("/posts", async (req, res) => {
+  try {
+    const posts = await client.records.list("posts", {
+      filter: { status: "published" },
+      limit: 10,
+    });
+    res.json(posts);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch posts" });
+  }
+});
+
+app.post("/posts", async (req, res) => {
+  try {
+    const post = await client.records.create("posts", req.body);
+    res.json(post);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to create post" });
+  }
+});
+
+app.listen(3000);
+```
+
+### Next.js Example
+
+```tsx
+// app/posts/page.tsx
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: process.env.SNACKBASE_URL!,
+  apiKey: process.env.SNACKBASE_API_KEY!,
+});
+
+export default async function PostsPage() {
+  const posts = await client.records.list("posts", {
+    filter: { status: "published" },
+  });
+
+  return (
+    <div>
+      <h1>Posts</h1>
+      <ul>
+        {posts.items.map((post) => (
+          <li key={post.id}>{post.title}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+### Background Jobs
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: process.env.SNACKBASE_URL!,
+  apiKey: process.env.SNACKBASE_API_KEY!,
+});
+
+// Run daily cleanup job
+async function cleanupOldRecords() {
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const oldRecords = await client.records.list("logs", {
+    filter: { createdAt: `< ${thirtyDaysAgo.toISOString()}` },
+  });
+
+  for (const record of oldRecords.items) {
+    await client.records.delete("logs", record.id);
+  }
+
+  console.log(`Deleted ${oldRecords.total} old records`);
+}
+
+// Run with a scheduler like node-cron
+```
+
+## Webhook Handling
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: process.env.SNACKBASE_URL!,
+  apiKey: process.env.SNACKBASE_API_KEY!,
+});
+
+app.post("/webhooks/payment", async (req, res) => {
+  const { event, data } = req.body;
+
+  switch (event) {
+    case "payment.succeeded":
+      // Update order in SnackBase
+      await client.records.update("orders", data.orderId, {
+        status: "paid",
+        paidAt: new Date().toISOString(),
+      });
+      break;
+
+    case "payment.failed":
+      await client.records.update("orders", data.orderId, {
+        status: "payment_failed",
+      });
+      break;
+  }
+
+  res.sendStatus(200);
+});
+```
+
+## Admin Operations
+
+API keys have full access to account operations:
+
+```ts
+// Create a new user
+const user = await client.users.create({
+  email: "newuser@example.com",
+  password: "SecurePassword123!",
+  accountRole: "member",
+});
+
+// Assign a role
+await client.roles.addUserToRole("roleId", "userId");
+
+// Update collection rules
+await client.collectionRules.update("collectionId", {
+  rules: [
+    {
+      name: "read-only",
+      permissions: ["read"],
+      expression: "user.role == 'viewer'",
+    },
+  ],
+});
+```
+
+## Error Handling
+
+```ts
+import {
+  AuthenticationError,
+  AuthorizationError,
+  NetworkError,
+} from "@snackbase/sdk";
+
+try {
+  const posts = await client.records.list("posts");
+} catch (error) {
+  if (error instanceof AuthenticationError) {
+    console.error("Invalid API key");
+  } else if (error instanceof AuthorizationError) {
+    console.error("API key lacks required permissions");
+  } else if (error instanceof NetworkError) {
+    console.error("Network error");
+  } else {
+    console.error("Unknown error:", error);
+  }
+}
+```
+
+## Security Best Practices
+
+### 1. Environment Variables
+
+Never hardcode API keys:
+
+```ts
+// Bad
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+  apiKey: "sbak_live_xxxxxxxxxxxxx",
+});
+
+// Good
+const client = new SnackBaseClient({
+  baseUrl: process.env.SNACKBASE_URL!,
+  apiKey: process.env.SNACKBASE_API_KEY!,
+});
+```
+
+### 2. Use Different Keys for Different Services
+
+Create separate API keys for different services:
+
+```bash
+# .env
+SNACKBASE_API_KEY_WEB=sbak_live_web_xxxxxxxxxxxxx
+SNACKBASE_API_KEY_CRON=sbak_live_cron_xxxxxxxxxxxxx
+SNACKBASE_API_KEY_WEBHOOKS=sbak_live_hooks_xxxxxxxxxxxxx
+```
+
+### 3. Rotate API Keys Regularly
+
+Periodically rotate your API keys:
+
+1. Create a new API key
+2. Update your environment variables
+3. Deploy the changes
+4. Delete the old API key
+
+### 4. Use Key Prefixes
+
+API keys include prefixes to identify their type:
+
+- `sbak_live_` - Production keys
+- `sbak_test_` - Test/development keys
+
+Verify the key type in production:
+
+```ts
+const apiKey = process.env.SNACKBASE_API_KEY!;
+
+if (!apiKey.startsWith("sbak_live_")) {
+  throw new Error("Production API key required");
+}
+```
+
+### 5. Monitor Usage
+
+Monitor your API key usage in the SnackBase admin panel to detect unauthorized access.
+
+## Rate Limits
+
+API keys have higher rate limits than user authentication:
+
+| Authentication | Rate Limit         |
+| -------------- | ------------------ |
+| User Token     | 100 requests/minute |
+| API Key        | 1000 requests/minute |
+
+<Note>
+  Actual rate limits depend on your SnackBase plan. Contact support for
+  custom limits.
+</Note>
+
+## Testing
+
+Use test API keys during development:
+
+```ts
+// Test environment
+const client = new SnackBaseClient({
+  baseUrl: "https://test-api.example.com",
+  apiKey: process.env.SNACKBASE_TEST_API_KEY!,
+});
+```
+
+## Next Steps
+
+- **[Email/Password Auth](/sdk/js/auth/email-password)** - User authentication
+- **[OAuth Guide](/sdk/js/auth/oauth)** - Social login
+- **[Error Handling](/sdk/js/errors/overview)** - Handle errors gracefully

@@ -1,0 +1,251 @@
+---
+title: "Authentication Overview"
+description: "Understand authentication in the SnackBase JavaScript SDK"
+---
+
+The SnackBase JavaScript SDK provides multiple authentication methods to secure your applications. This guide explains the authentication model and available options.
+
+## Authentication Methods
+
+SnackBase supports several authentication methods:
+
+| Method           | Use Case                           | Location         |
+| ---------------- | ---------------------------------- | ---------------- |
+| Email/Password   | Traditional web applications       | Client + Server  |
+| OAuth            | Social login (Google, GitHub, etc.) | Client           |
+| SAML             | Enterprise SSO                     | Client           |
+| API Keys         | Server-to-server communication     | Server Only      |
+
+## Authentication Flow
+
+### 1. User Authentication
+
+The user provides credentials (email/password, OAuth, or SAML):
+
+```ts
+// Email and password
+const auth = await client.auth.loginWithPassword({
+  account: "my-account",
+  email: "user@example.com",
+  password: "password",
+});
+
+// OAuth redirect
+const url = client.auth.getOAuthUrl("google", "my-account");
+window.location.href = url;
+
+// SAML redirect
+const url = await client.auth.getSAMLUrl("okta", "my-account");
+window.location.href = url;
+```
+
+### 2. Token Storage
+
+After successful authentication, the SDK receives:
+
+- **Access Token**: Short-lived token for API requests (default: 15 minutes)
+- **Refresh Token**: Long-lived token for obtaining new access tokens
+
+Tokens are automatically stored based on your `storageBackend` configuration:
+
+```ts
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+  storageBackend: "localStorage", // Tokens persist across sessions
+});
+```
+
+### 3. Automatic Token Injection
+
+The SDK automatically includes the access token in all API requests via the `Authorization` header:
+
+```ts
+// This request automatically includes the auth header
+const posts = await client.records.list("posts");
+```
+
+### 4. Automatic Token Refresh
+
+When `enableAutoRefresh` is true (default), the SDK automatically refreshes the access token before it expires:
+
+```ts
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+  enableAutoRefresh: true,
+  refreshBeforeExpiry: 300, // Refresh 5 minutes before expiry
+});
+```
+
+## Auth State Management
+
+The SDK manages authentication state internally:
+
+```ts
+// Check if authenticated
+if (client.isAuthenticated) {
+  console.log("Logged in as:", client.user?.email);
+  console.log("Account:", client.account?.name);
+}
+
+// Get the current token
+const token = client.auth.token;
+```
+
+## Auth Events
+
+Subscribe to authentication state changes:
+
+```ts
+// Listen for login events
+client.on("auth:login", (state) => {
+  console.log("User logged in:", state.user);
+});
+
+// Listen for logout events
+client.on("auth:logout", () => {
+  console.log("User logged out");
+  // Redirect to login page
+});
+
+// Listen for token refresh
+client.on("auth:refresh", (state) => {
+  console.log("Token refreshed");
+});
+
+// Listen for auth errors
+client.on("auth:error", (error) => {
+  console.error("Auth error:", error);
+});
+```
+
+## Multi-Account Users
+
+SnackBase supports users that belong to multiple accounts. After authentication, you can switch accounts:
+
+```ts
+// Get all accounts for the current user
+const accounts = await client.accounts.list();
+
+// Switch to a different account
+await client.auth.switchAccount(accountId);
+```
+
+## Session Expiry
+
+Access tokens have a limited lifetime. The SDK handles this automatically:
+
+1. **Before expiry**: Token is refreshed automatically (if `enableAutoRefresh` is true)
+2. **After expiry**: You'll receive a 401 error, and the SDK will attempt to refresh
+3. **Refresh failure**: You'll need to re-authenticate
+
+Check token expiry:
+
+```ts
+// The SDK manages this internally
+// If you need to check manually:
+const authState = client.internalAuthManager.getState();
+if (authState.expiresAt) {
+  const expiryDate = new Date(authState.expiresAt);
+  const now = new Date();
+  if (expiryDate <= now) {
+    console.log("Token has expired");
+  }
+}
+```
+
+## Logout
+
+Properly log out the current user:
+
+```ts
+// Logout clears stored tokens and state
+await client.auth.logout();
+
+// The user is now logged out
+console.log(client.isAuthenticated); // false
+```
+
+<Note>
+  Logging out also disconnects any real-time subscriptions and clears the
+  authentication state from storage.
+</Note>
+
+## Choosing an Authentication Method
+
+### Email/Password
+
+Use for traditional applications where users create accounts with email and password.
+
+**Pros:**
+- Full control over user data
+- No external dependencies
+- Works offline
+
+**Cons:**
+- Requires password management
+- Users may forget passwords
+
+**When to use:**
+- B2B applications
+- Internal tools
+- Apps requiring full user control
+
+### OAuth
+
+Use for consumer applications where social login simplifies onboarding.
+
+**Pros:**
+- No password management
+- Faster signup
+- Trusted providers
+
+**Cons:**
+- Dependent on external providers
+- Less control over user data
+
+**When to use:**
+- B2C applications
+- Social apps
+- Apps wanting low friction signup
+
+### SAML
+
+Use for enterprise customers requiring SSO.
+
+**Pros:**
+- Enterprise standard
+- Centralized user management
+- High security
+
+**Cons:**
+- Complex setup
+- Requires enterprise identity provider
+
+**When to use:**
+- B2B enterprise apps
+- Apps with security requirements
+- Integrating with existing enterprise systems
+
+### API Keys
+
+Use for server-to-server communication.
+
+**Pros:**
+- No user session required
+- Long-lived credentials
+- Easy to revoke
+
+**Cons:**
+- Must be kept secret
+- Cannot be used on the client side
+
+**When to use:**
+- Backend services
+- Cron jobs
+- Webhooks
+
+## Next Steps
+
+- **[Email/Password Auth](/sdk/js/auth/email-password)** - Implement traditional authentication
+- **[OAuth Guide](/sdk/js/auth/oauth)** - Set up social login
+- **[API Keys](/sdk/js/auth/api-keys)** - Use API keys for server operations

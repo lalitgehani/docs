@@ -1,0 +1,338 @@
+---
+title: "WebSocket Realtime"
+description: "Use WebSocket for low-latency real-time updates"
+---
+
+WebSocket provides a full-duplex communication channel for low-latency real-time updates in SnackBase.
+
+## Overview
+
+The SnackBase SDK automatically uses WebSocket when available, providing real-time updates with minimal latency:
+
+```ts
+await client.realtime.connect();
+await client.realtime.subscribe("posts");
+
+client.realtime.on("posts.create", (data) => {
+  console.log("New post:", data);
+});
+```
+
+## WebSocket vs SSE
+
+| Feature          | WebSocket | SSE        |
+| ---------------- | --------- | ---------- |
+| Latency          | Very low  | Low        |
+| Bidirectional    | Yes       | No         |
+| Browser Support  | Modern    | All        |
+| Fallback         | Yes       | Primary    |
+| Server Load      | Higher    | Lower      |
+| Use Case         | Interactive | Simple updates |
+
+The SDK automatically falls back to SSE if WebSocket is not available.
+
+## WebSocket URL
+
+The SDK constructs the WebSocket URL from your base URL:
+
+```ts
+// HTTPS becomes WSS
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+});
+// WebSocket URL: wss://api.example.com/api/v1/realtime/ws
+
+// HTTP becomes WS
+const client = new SnackBaseClient({
+  baseUrl: "http://localhost:8000",
+});
+// WebSocket URL: ws://localhost:8000/api/v1/realtime/ws
+```
+
+## Authentication
+
+WebSocket connections include the authentication token:
+
+```ts
+// After login, the token is automatically included
+await client.auth.loginWithPassword({
+  email: "user@example.com",
+  password: "password",
+});
+
+// WebSocket connection uses the auth token
+await client.realtime.connect();
+```
+
+## Connection Lifecycle
+
+### 1. Connection
+
+```ts
+await client.realtime.connect();
+```
+
+### 2. State Changes
+
+```ts
+client.realtime.on("connecting", () => {
+  console.log("WebSocket connecting...");
+});
+
+client.realtime.on("connected", () => {
+  console.log("WebSocket connected");
+});
+
+client.realtime.on("disconnected", () => {
+  console.log("WebSocket disconnected");
+});
+
+client.realtime.on("error", (error) => {
+  console.error("WebSocket error:", error);
+});
+```
+
+### 3. Disconnection
+
+```ts
+client.realtime.disconnect();
+```
+
+## Subscriptions
+
+WebSocket subscriptions are sent as messages:
+
+```ts
+// Subscribe to collection
+await client.realtime.subscribe("posts", ["create", "update", "delete"]);
+
+// This sends: {"action": "subscribe", "collection": "posts", "operations": ["create", "update", "delete"]}
+```
+
+### Subscription Confirmation
+
+The server confirms subscriptions:
+
+```ts
+await client.realtime.subscribe("posts");
+
+// When confirmed, you'll receive confirmation internally
+// The subscribe() promise resolves when confirmed
+```
+
+## Heartbeat
+
+WebSocket connections use heartbeat to detect dead connections:
+
+```ts
+// The SDK sends ping every 30 seconds
+// Server responds with pong
+// If pong not received, connection is considered dead
+```
+
+## Reconnection
+
+Automatic reconnection with exponential backoff:
+
+```ts
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+  maxRealTimeRetries: 10,        // Max reconnection attempts
+  realTimeReconnectionDelay: 1000, // Initial delay (ms)
+});
+
+// If connection is lost, SDK automatically reconnects
+// All subscriptions are restored
+```
+
+## Manual Reconnection
+
+Force a reconnection:
+
+```ts
+// Disconnect
+client.realtime.disconnect();
+
+// Reconnect
+await client.realtime.connect();
+```
+
+## Check Connection Method
+
+The SDK can detect if WebSocket is available:
+
+```ts
+// In browsers, check if WebSocket is available
+if (typeof WebSocket !== "undefined") {
+  console.log("WebSocket is available");
+  // SDK will use WebSocket
+} else {
+  console.log("WebSocket not available, will use SSE");
+}
+```
+
+## Performance Optimization
+
+### 1. Batch Operations
+
+Wait for multiple events before updating UI:
+
+```ts
+import { debounce } from "lodash";
+
+const debouncedUpdate = debounce(() => {
+  // Refresh UI
+  refreshPosts();
+}, 100);
+
+client.realtime.on("posts.update", debouncedUpdate);
+client.realtime.on("posts.delete", debouncedUpdate);
+```
+
+### 2. Selective Subscriptions
+
+Only subscribe to operations you need:
+
+```ts
+// Only new posts
+await client.realtime.subscribe("posts", ["create"]);
+
+// Not all operations
+await client.realtime.subscribe("posts"); // Avoid if you only need create
+```
+
+### 3. Connection Pooling
+
+For multiple tabs/windows, use a shared worker or broadcast channel:
+
+```ts
+// Use BroadcastChannel for cross-tab updates
+const channel = new BroadcastChannel("snackbase-updates");
+
+client.realtime.on("posts.create", (data) => {
+  channel.postMessage({ type: "posts.create", data });
+});
+
+// In other tabs
+channel.onmessage = (event) => {
+  if (event.data.type === "posts.create") {
+    // Update UI
+  }
+};
+```
+
+## WebSocket Configuration
+
+Configure WebSocket behavior:
+
+```ts
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+
+  // Realtime settings
+  maxRealTimeRetries: 20,         // Increase retries for unstable networks
+  realTimeReconnectionDelay: 2000, // Start with 2 second delay
+});
+```
+
+## Debugging WebSocket
+
+Enable logging to debug WebSocket issues:
+
+```ts
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+  enableLogging: true,
+  logLevel: "debug",
+});
+
+// Now you'll see detailed logs:
+// RealTimeService: Connecting...
+// RealTimeService: WebSocket connected
+// RealTimeService: Subscribing to posts
+// RealTimeService: Received message
+```
+
+## Browser DevTools
+
+Inspect WebSocket messages in browser devtools:
+
+1. Open DevTools (F12)
+2. Go to **Network** tab
+3. Filter by **WS** (WebSocket)
+4. Select the WebSocket connection
+5. View messages in **Messages** tab
+
+## React Example
+
+```tsx
+import { useEffect, useState } from "react";
+import { useSnackBase } from "@snackbase/sdk/react";
+
+function RealtimeIndicator() {
+  const client = useSnackBase();
+  const [state, setState] = useState<"disconnected" | "connecting" | "connected">("disconnected");
+
+  useEffect(() => {
+    const unsubscribes: (() => void)[] = [];
+
+    // Monitor connection state
+    unsubscribes.push(client.realtime.on("connecting", () => setState("connecting")));
+    unsubscribes.push(client.realtime.on("connected", () => setState("connected")));
+    unsubscribes.push(client.realtime.on("disconnected", () => setState("disconnected")));
+
+    return () => {
+      unsubscribes.forEach((fn) => fn());
+    };
+  }, [client]);
+
+  const colors = {
+    connected: "bg-green-500",
+    connecting: "bg-yellow-500",
+    disconnected: "bg-red-500",
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className={`w-2 h-2 rounded-full ${colors[state]}`} />
+      <span className="capitalize">{state}</span>
+    </div>
+  );
+}
+```
+
+## Common Issues
+
+### 1. Connection Fails
+
+**Problem:** WebSocket connection fails
+
+**Solutions:**
+- Check that user is authenticated
+- Verify base URL is correct
+- Check browser console for errors
+- Try HTTPS/WSS (some browsers block WS on HTTPS pages)
+
+### 2. Frequent Disconnections
+
+**Problem:** Connection drops frequently
+
+**Solutions:**
+- Increase `maxRealTimeRetries`
+- Check network stability
+- Verify server WebSocket timeout settings
+
+### 3. Events Not Received
+
+**Problem:** Not receiving realtime events
+
+**Solutions:**
+- Verify subscription was successful
+- Check connection state
+- Ensure you're listening to correct event names
+
+## Next Steps
+
+- **[SSE](/sdk/js/realtime/sse)** - Server-Sent Events fallback
+- **[Events](/sdk/js/realtime/events)** - Event reference
+- **[Realtime Overview](/sdk/js/realtime/overview)** - Getting started

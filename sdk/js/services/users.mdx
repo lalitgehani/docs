@@ -1,0 +1,94 @@
+---
+title: "Users Service"
+description: "Manage users in your SnackBase account"
+---
+
+The Users service provides methods for managing users within your SnackBase account.
+
+## Overview
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+});
+
+// Access the users service
+const users = client.users;
+```
+
+## List Users
+
+```ts
+const result = await client.users.list();
+
+console.log(result.items);
+```
+
+## Get a User
+
+```ts
+const user = await client.users.get("user-id");
+```
+
+## Create a User
+
+```ts
+const user = await client.users.create({
+  email: "newuser@example.com",
+  password: "SecurePassword123!",
+  fullName: "John Doe",
+  isActive: true,
+});
+```
+
+<Note>
+  The user will need to verify their email if email verification is enabled
+  in your SnackBase configuration.
+</Note>
+
+## Update a User
+
+```ts
+const updated = await client.users.update("user-id", {
+  fullName: "Jane Doe",
+});
+```
+
+## Deactivate a User
+
+```ts
+await client.users.deactivate("user-id");
+```
+
+<Note>
+  Deactivated users cannot log in but their data is preserved.
+</Note>
+
+## User Object
+
+```ts
+interface User {
+  id: string;
+  email: string;
+  fullName?: string;
+  avatarUrl?: string;
+  isActive: boolean;
+  isEmailVerified: boolean;
+  roleIds: string[];
+  account: {
+    id: string;
+    name: string;
+    slug: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+## Next Steps
+
+- **[Accounts Service](/sdk/js/services/accounts)** - Manage accounts
+- **[Roles Service](/sdk/js/services/roles)** - Manage roles and permissions
+- **[Invitations Service](/sdk/js/services/invitations)** - Invite users to accounts

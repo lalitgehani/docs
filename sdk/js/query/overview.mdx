@@ -1,0 +1,166 @@
+---
+title: "Query Builder Overview"
+description: "Build complex queries with the fluent query builder API"
+---
+
+The Query Builder provides a fluent API for building complex queries with filtering, sorting, pagination, and field selection.
+
+## Overview
+
+Instead of passing query parameters as an object, use the Query Builder for a more readable and maintainable way to construct queries:
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+});
+
+// Using Query Builder
+const results = await client.records
+  .query("posts")
+  .select("id", "title", "author.name")
+  .expand("author", "comments")
+  .filter("status", "=", "published")
+  .filter("createdAt", ">", "2024-01-01")
+  .sort("createdAt", "desc")
+  .page(1, 20)
+  .get();
+
+// vs using parameters
+const results2 = await client.records.list("posts", {
+  fields: ["id", "title", "author.name"],
+  expand: ["author", "comments"],
+  filter: {
+    status: "published",
+    createdAt: "> 2024-01-01",
+  },
+  sort: "-createdAt",
+  skip: 0,
+  limit: 20,
+});
+```
+
+## Getting Started
+
+### Create a Query Builder
+
+Start a query by calling `query()` on the records service:
+
+```ts
+const query = client.records.query("posts");
+```
+
+### Execute the Query
+
+Execute the query with `get()`:
+
+```ts
+const results = await query.get();
+
+console.log(results.items);
+console.log(results.total);
+```
+
+## Chaining Methods
+
+The Query Builder uses method chaining for a fluent API:
+
+```ts
+const results = await client.records
+  .query("posts")
+  .select("id", "title")
+  .filter("status", "=", "published")
+  .sort("createdAt", "desc")
+  .page(1, 20)
+  .get();
+```
+
+Each method returns the Query Builder instance, allowing you to chain multiple methods together.
+
+## Complete Example
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+});
+
+async function queryPosts() {
+  // Build and execute query
+  const results = await client.records
+    .query("posts")
+    .select("id", "title", "author", "createdAt")
+    .expand("author")
+    .filter("status", "=", "published")
+    .filter("views", ">=", 100)
+    .sort("createdAt", "desc")
+    .page(1, 20)
+    .get();
+
+  console.log(`Found ${results.total} posts`);
+  results.items.forEach((post) => {
+    console.log(post.title);
+  });
+}
+```
+
+## First() Method
+
+Get the first matching record:
+
+```ts
+const post = await client.records
+  .query("posts")
+  .filter("slug", "=", "my-post")
+  .first();
+
+if (post) {
+  console.log("Found post:", post.title);
+} else {
+  console.log("No post found");
+}
+```
+
+<Note>
+  `first()` automatically sets `limit(1)` and `skip(0)` and returns a single
+  record or `null`.
+</Note>
+
+## Reusable Queries
+
+Create reusable query functions:
+
+```ts
+function getPublishedPosts(client: SnackBaseClient) {
+  return client.records
+    .query("posts")
+    .filter("status", "=", "published")
+    .sort("createdAt", "desc");
+}
+
+// Use the reusable query
+const recentPosts = await getPublishedPosts(client).page(1, 10).get();
+const oldPosts = await getPublishedPosts(client).sort("createdAt", "asc").get();
+```
+
+## Query Builder Methods
+
+| Method      | Description                              |
+| ----------- | ---------------------------------------- |
+| `select()`  | Specify fields to return                 |
+| `expand()`  | Expand related records                   |
+| `filter()`  | Add filter conditions                    |
+| `sort()`    | Add sorting                              |
+| `page()`    | Set page number and size                 |
+| `limit()`   | Set max records (manual pagination)      |
+| `skip()`    | Set records to skip (manual pagination)  |
+| `get()`     | Execute query and return list            |
+| `first()`   | Execute query and return first record    |
+
+## Next Steps
+
+- **[Filtering](/sdk/js/query/filtering)** - Advanced filtering techniques
+- **[Sorting](/sdk/js/query/sorting)** - Sort query results
+- **[Pagination](/sdk/js/query/pagination)** - Paginate large result sets

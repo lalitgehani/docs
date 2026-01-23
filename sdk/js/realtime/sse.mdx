@@ -1,0 +1,388 @@
+---
+title: "Server-Sent Events (SSE)"
+description: "Use Server-Sent Events for real-time updates"
+---
+
+Server-Sent Events (SSE) provide a simple, one-way communication channel for real-time updates from the server to the client.
+
+## Overview
+
+The SnackBase SDK automatically falls back to SSE when WebSocket is not available:
+
+```ts
+await client.realtime.connect();
+await client.realtime.subscribe("posts");
+
+client.realtime.on("posts.create", (data) => {
+  console.log("New post:", data);
+});
+```
+
+## SSE vs WebSocket
+
+| Feature          | SSE        | WebSocket |
+| ---------------- | ---------- | ---------- |
+| Direction        | One-way    | Bidirectional |
+| Browser Support  | All        | Modern    |
+| Latency          | Low        | Very low  |
+| Server Load      | Lower      | Higher    |
+| Auto Reconnect   | Yes        | Manual    |
+| Use Case         | Updates    | Interactive |
+
+The SDK prefers WebSocket but falls back to SSE automatically.
+
+## SSE URL
+
+The SDK constructs the SSE URL from your base URL:
+
+```ts
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+});
+// SSE URL: https://api.example.com/api/v1/realtime/subscribe?token=xxx&collections=posts:create,update
+```
+
+## Subscriptions with SSE
+
+SSE subscriptions are specified at connection time:
+
+```ts
+// Subscribe to collections
+await client.realtime.subscribe("posts", ["create", "update"]);
+await client.realtime.subscribe("comments", ["create"]);
+
+// When SSE connects, it includes all subscriptions
+// ?collections=posts:create,update&collections=comments:create
+```
+
+## Connection Lifecycle
+
+### 1. Connection
+
+```ts
+await client.realtime.connect();
+// Creates EventSource with subscriptions
+```
+
+### 2. State Changes
+
+```ts
+client.realtime.on("connecting", () => {
+  console.log("SSE connecting...");
+});
+
+client.realtime.on("connected", () => {
+  console.log("SSE connected");
+});
+
+client.realtime.on("disconnected", () => {
+  console.log("SSE disconnected");
+});
+
+client.realtime.on("error", (error) => {
+  console.error("SSE error:", error);
+});
+```
+
+### 3. Disconnection
+
+```ts
+client.realtime.disconnect();
+// Closes EventSource
+```
+
+## SSE Message Format
+
+Messages are received as text/event-stream:
+
+```
+data: {"type":"posts.create","data":{"id":"xxx","title":"..."}}
+
+data: {"type":"posts.update","data":{"id":"xxx","title":"..."}}
+
+data: {"type":"posts.delete","data":{"id":"xxx"}}
+```
+
+## Automatic Reconnection
+
+SSE has built-in reconnection:
+
+```ts
+// Browser automatically reconnects SSE
+// SDK also handles reconnection with exponential backoff
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+  maxRealTimeRetries: 10,
+  realTimeReconnectionDelay: 1000,
+});
+```
+
+## Authentication
+
+SSE connections include the authentication token in the URL:
+
+```ts
+// After login
+await client.auth.loginWithPassword({
+  email: "user@example.com",
+  password: "password",
+});
+
+// SSE URL includes token
+await client.realtime.connect();
+// ?token=eyJhbGc...&collections=posts:create,update
+```
+
+<Warning>
+  Tokens in URLs may be logged in server access logs. This is a limitation
+  of the SSE protocol.
+</Warning>
+
+## SSE Limitations
+
+### 1. One-Way Communication
+
+SSE is server-to-client only:
+
+```ts
+// You CANNOT send messages to server with SSE
+// Use WebSocket for bidirectional communication
+```
+
+### 2. Limited Subscriptions After Connection
+
+With SSE, subscriptions are set at connection time:
+
+```ts
+// Subscribe before connecting
+await client.realtime.subscribe("posts");
+await client.realtime.subscribe("comments");
+
+// Then connect
+await client.realtime.connect();
+
+// Changing subscriptions requires reconnection
+await client.realtime.subscribe("likes"); // May not work until reconnect
+await client.realtime.connect(); // Reconnect to apply new subscriptions
+```
+
+### 3. No Heartbeat
+
+SSE uses connection keep-alive instead of heartbeat:
+
+```ts
+// SSE doesn't have ping/pong like WebSocket
+// Browser automatically detects dead connections
+```
+
+## When to Use SSE
+
+Use SSE when:
+
+1. **WebSocket is unavailable** - Older browsers or restrictive networks
+2. **Simple updates needed** - One-way server updates are sufficient
+3. **Lower server load** - SSE uses fewer resources than WebSocket
+
+```ts
+// SDK automatically uses SSE when appropriate
+await client.realtime.connect();
+// Uses WebSocket if available, falls back to SSE
+```
+
+## React Example
+
+```tsx
+import { useEffect, useState } from "react";
+import { useSnackBase } from "@snackbase/sdk/react";
+
+function useRealtimePosts() {
+  const client = useSnackBase();
+  const [posts, setPosts] = useState<Post[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function setup() {
+      // Subscribe to posts
+      await client.realtime.subscribe("posts", ["create", "update", "delete"]);
+
+      // Connect
+      await client.realtime.connect();
+
+      // Listen for events
+      client.realtime.on("posts.create", (post: Post) => {
+        if (mounted) {
+          setPosts((prev) => [...prev, post]);
+        }
+      });
+
+      client.realtime.on("posts.update", (post: Post) => {
+        if (mounted) {
+          setPosts((prev) =>
+            prev.map((p) => (p.id === post.id ? post : p))
+          );
+        }
+      });
+
+      client.realtime.on("posts.delete", (post: Post) => {
+        if (mounted) {
+          setPosts((prev) => prev.filter((p) => p.id !== post.id));
+        }
+      });
+    }
+
+    setup();
+
+    return () => {
+      mounted = false;
+      client.realtime.disconnect();
+    };
+  }, [client]);
+
+  return posts;
+}
+
+function PostList() {
+  const posts = useRealtimePosts();
+
+  return (
+    <ul>
+      {posts.map((post) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## Cross-Browser Considerations
+
+SSE is supported in most browsers:
+
+| Browser       | SSE Support |
+| ------------- | ----------- |
+| Chrome        | Yes         |
+| Firefox       | Yes         |
+| Safari        | Yes         |
+| Edge          | Yes         |
+| IE 11         | No (use polyfill) |
+| Opera         | Yes         |
+
+For IE 11, use an SSE polyfill:
+
+```ts
+// Install polyfill
+npm install event-source-polyfill
+
+// Use polyfill
+import { EventSourcePolyfill } from 'event-source-polyfill';
+
+// Configure SDK to use polyfill
+// (SDK will use native EventSource when available)
+```
+
+## Debugging SSE
+
+Enable logging to debug SSE issues:
+
+```ts
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+  enableLogging: true,
+  logLevel: "debug",
+});
+
+// Logs will show:
+// RealTimeService: Connecting...
+// RealTimeService: SSE connected
+// RealTimeService: Received message
+```
+
+Check SSE connection in browser DevTools:
+
+1. Open DevTools (F12)
+2. Go to **Network** tab
+3. Filter by **EventStream**
+4. Select the SSE connection
+5. View messages in **Response** tab
+
+## Common Issues
+
+### 1. Connection Closes Immediately
+
+**Problem:** SSE connection closes after opening
+
+**Solutions:**
+- Check authentication token is valid
+- Verify server allows SSE connections
+- Check for proxy/load balancer issues
+
+### 2. No Events Received
+
+**Problem:** Connection stays open but no events received
+
+**Solutions:**
+- Verify subscriptions are set before connection
+- Check collection names are correct
+- Ensure server has events to send
+
+### 3. Frequent Reconnections
+
+**Problem:** SSE keeps reconnecting
+
+**Solutions:**
+- Check network stability
+- Verify server timeout settings
+- Increase reconnection delay
+
+## Performance Tips
+
+### 1. Minimize Subscriptions
+
+Only subscribe to what you need:
+
+```ts
+// Good - specific operations
+await client.realtime.subscribe("posts", ["create"]);
+
+// Avoid - all operations if not needed
+await client.realtime.subscribe("posts");
+```
+
+### 2. Debounce Updates
+
+Debounce rapid updates:
+
+```ts
+import { debounce } from "lodash";
+
+const debouncedUpdate = debounce((posts) => {
+  // Update UI
+  renderPosts(posts);
+}, 100);
+
+client.realtime.on("posts.update", debouncedUpdate);
+```
+
+### 3. Use Connection Pooling
+
+For multiple tabs, use BroadcastChannel:
+
+```ts
+const channel = new BroadcastChannel("snackbase-updates");
+
+client.realtime.on("posts.create", (data) => {
+  channel.postMessage({ type: "posts.create", data });
+});
+
+// Other tabs listen to channel
+channel.onmessage = (event) => {
+  // Update UI in other tabs
+};
+```
+
+## Next Steps
+
+- **[WebSocket](/sdk/js/realtime/websocket)** - WebSocket for bidirectional communication
+- **[Events](/sdk/js/realtime/events)** - Event reference
+- **[Realtime Overview](/sdk/js/realtime/overview)** - Getting started

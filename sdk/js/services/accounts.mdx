@@ -1,0 +1,94 @@
+---
+title: "Accounts Service"
+description: "Manage accounts in your SnackBase instance"
+---
+
+The Accounts service provides methods for managing accounts, which are the top-level containers for users, collections, and data in SnackBase.
+
+## Overview
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+});
+
+// Access the accounts service
+const accounts = client.accounts;
+```
+
+## List Accounts
+
+```ts
+const result = await client.accounts.list();
+
+console.log(result.items);
+console.log(result.total);
+```
+
+## Get an Account
+
+```ts
+const account = await client.accounts.get("account-id");
+
+console.log(account.id);
+console.log(account.name);
+```
+
+## Create an Account
+
+```ts
+const account = await client.accounts.create({
+  name: "Acme Corporation",
+  slug: "acme-corp",
+});
+```
+
+<Note>
+  Account slugs must be unique across the entire SnackBase instance.
+</Note>
+
+## Update an Account
+
+```ts
+const updated = await client.accounts.update("account-id", {
+  name: "Updated Account Name",
+});
+```
+
+## Delete an Account
+
+```ts
+await client.accounts.delete("account-id");
+```
+
+<Warning>
+  Deleting an account permanently deletes all users, collections, and
+  records within it. This action cannot be undone.
+</Warning>
+## Get Account Users
+
+```ts
+const users = await client.accounts.getUsers("account-id");
+```
+
+## Account Object
+
+```ts
+interface Account {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  settings?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+## Next Steps
+
+- **[Users Service](/sdk/js/services/users)** - Manage users
+- **[Roles Service](/sdk/js/services/roles)** - Manage roles and permissions
+- **[Authentication](/sdk/js/auth/overview)** - Understand authentication

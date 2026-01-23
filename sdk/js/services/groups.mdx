@@ -1,0 +1,83 @@
+---
+title: "Groups Service"
+description: "Manage user groups for easier access control"
+---
+
+The Groups service provides methods for managing user groups.
+
+## Overview
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+});
+
+// Access the groups service
+const groups = client.groups;
+```
+
+## List Groups
+
+```ts
+const result = await client.groups.list();
+```
+
+## Get a Group
+
+```ts
+const group = await client.groups.get("group-id");
+```
+
+## Create a Group
+
+```ts
+const group = await client.groups.create({
+  name: "Editors",
+  description: "Content editors team",
+});
+```
+
+## Update a Group
+
+```ts
+const updated = await client.groups.update("group-id", {
+  name: "Senior Editors",
+});
+```
+
+## Delete a Group
+
+```ts
+await client.groups.delete("group-id");
+```
+
+<Note>
+  Deleting a group removes it from all users. The users themselves are not
+  deleted.
+</Note>
+
+## Add User to Group
+
+```ts
+await client.groups.addUser("group-id", "user-id");
+```
+
+## Remove User from Group
+
+```ts
+await client.groups.removeUser("group-id", "user-id");
+```
+
+## Get Group Members
+
+```ts
+const members = await client.groups.getMembers("group-id");
+```
+
+## Next Steps
+
+- **[Roles Service](/sdk/js/services/roles)** - Manage roles and permissions
+- **[Users Service](/sdk/js/services/users)** - Manage users
+- **[Invitations Service](/sdk/js/services/invitations)** - Invite users to accounts

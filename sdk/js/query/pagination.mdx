@@ -1,0 +1,433 @@
+---
+title: "Paginating Queries"
+description: "Paginate large result sets efficiently"
+---
+
+Pagination allows you to retrieve large result sets in manageable chunks, improving performance and user experience.
+
+## Overview
+
+Use pagination to retrieve records in pages:
+
+```ts
+const page1 = await client.records
+  .query("posts")
+  .page(1, 20)
+  .get();
+
+console.log(page1.items);    // 20 records
+console.log(page1.total);    // Total count
+console.log(page1.skip);     // 0
+console.log(page1.limit);    // 20
+```
+
+## Page-Based Pagination
+
+Use `page()` for page-based pagination:
+
+```ts
+const results = await client.records
+  .query("posts")
+  .page(1, 20)  // Page 1, 20 items per page
+  .get();
+```
+
+### Page Parameters
+
+- **page number**: 1-based index (first page is 1)
+- **per page**: Number of items per page
+
+```ts
+// Page 1
+const page1 = await client.records
+  .query("posts")
+  .page(1, 20)
+  .get();
+
+// Page 2
+const page2 = await client.records
+  .query("posts")
+  .page(2, 20)
+  .get();
+
+// Page 3
+const page3 = await client.records
+  .query("posts")
+  .page(3, 20)
+  .get();
+```
+
+## Manual Pagination
+
+Use `limit()` and `skip()` for manual offset pagination:
+
+```ts
+const results = await client.records
+  .query("posts")
+  .skip(0)
+  .limit(20)
+  .get();
+```
+
+### Manual Pagination Parameters
+
+- **skip**: Number of records to skip (offset)
+- **limit**: Maximum number of records to return
+
+```ts
+// First 20 records
+const page1 = await client.records
+  .query("posts")
+  .skip(0)
+  .limit(20)
+  .get();
+
+// Next 20 records
+const page2 = await client.records
+  .query("posts")
+  .skip(20)
+  .limit(20)
+  .get();
+
+// Next 20 records
+const page3 = await client.records
+  .query("posts")
+  .skip(40)
+  .limit(20)
+  .get();
+```
+
+## Pagination Response
+
+The pagination response includes metadata:
+
+```ts
+interface RecordListResponse<T> {
+  items: T[];      // Array of records
+  total: number;   // Total count of matching records
+  skip: number;    // Current offset
+  limit: number;   // Current page size
+}
+```
+
+## Calculating Total Pages
+
+Calculate the total number of pages:
+
+```ts
+const results = await client.records
+  .query("posts")
+  .page(1, 20)
+  .get();
+
+const totalPages = Math.ceil(results.total / results.limit);
+
+console.log(`Page 1 of ${totalPages}`);
+```
+
+## Building a Paginator
+
+Create a reusable pagination helper:
+
+```ts
+async function getPaginatedResults(
+  collection: string,
+  page: number,
+  perPage: number = 20
+) {
+  const results = await client.records
+    .query(collection)
+    .page(page, perPage)
+    .get();
+
+  const totalPages = Math.ceil(results.total / perPage);
+
+  return {
+    items: results.items,
+    total: results.total,
+    page,
+    perPage,
+    totalPages,
+    hasNext: page < totalPages,
+    hasPrev: page > 1,
+  };
+}
+
+// Usage
+const page = await getPaginatedResults("posts", 2, 20);
+
+console.log(`Page ${page.page} of ${page.totalPages}`);
+console.log("Has next:", page.hasNext);
+console.log("Has previous:", page.hasPrev);
+```
+
+## Combining with Filtering and Sorting
+
+Combine pagination with filtering and sorting:
+
+```ts
+const results = await client.records
+  .query("posts")
+  .filter("status", "=", "published")
+  .sort("createdAt", "desc")
+  .page(1, 20)
+  .get();
+```
+
+<Note>
+  The `total` count reflects all matching records, not just the current page.
+</Note>
+
+## Infinite Scroll
+
+Implement infinite scroll pagination:
+
+```ts
+let offset = 0;
+const limit = 20;
+let hasMore = true;
+
+while (hasMore) {
+  const results = await client.records
+    .query("posts")
+    .skip(offset)
+    .limit(limit)
+    .get();
+
+  // Process results
+  results.items.forEach(post => {
+    console.log(post.title);
+  });
+
+  // Check if there are more results
+  hasMore = results.items.length === limit;
+  offset += limit;
+}
+```
+
+## React Example
+
+Create a paginated list component:
+
+```tsx
+import { useState, useEffect } from "react";
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+});
+
+function PaginatedList() {
+  const [posts, setPosts] = useState([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+  const [loading, setLoading] = useState(false);
+
+  const perPage = 20;
+
+  useEffect(() => {
+    async function loadPosts() {
+      setLoading(true);
+      const results = await client.records
+        .query("posts")
+        .page(page, perPage)
+        .get();
+
+      setPosts(results.items);
+      setTotalPages(Math.ceil(results.total / perPage));
+      setLoading(false);
+    }
+
+    loadPosts();
+  }, [page]);
+
+  return (
+    <div>
+      <h1>Posts (Page {page} of {totalPages})</h1>
+
+      {loading ? (
+        <p>Loading...</p>
+      ) : (
+        <ul>
+          {posts.map(post => (
+            <li key={post.id}>{post.title}</li>
+          ))}
+        </ul>
+      )}
+
+      <button
+        disabled={page === 1}
+        onClick={() => setPage(p => p - 1)}
+      >
+        Previous
+      </button>
+
+      <button
+        disabled={page === totalPages}
+        onClick={() => setPage(p => p + 1)}
+      >
+        Next
+      </button>
+    </div>
+  );
+}
+```
+
+## Cursor-Based Pagination
+
+For large datasets, consider cursor-based pagination:
+
+```ts
+async function getPaginatedResults(cursor: string | null = null) {
+  const params: any = { limit: 20 };
+
+  if (cursor) {
+    params.cursor = cursor;
+  }
+
+  const results = await client.records.list("posts", params);
+
+  return {
+    items: results.items,
+    nextCursor: results.cursor, // Cursor for next page
+    hasMore: results.hasMore,    // Whether there are more results
+  };
+}
+```
+
+## Performance Best Practices
+
+### 1. Use Appropriate Page Sizes
+
+Choose page sizes based on your use case:
+
+```ts
+// Mobile - smaller pages
+const mobilePage = await client.records
+  .query("posts")
+  .page(1, 10)
+  .get();
+
+// Desktop - larger pages
+const desktopPage = await client.records
+  .query("posts")
+  .page(1, 50)
+  .get();
+```
+
+### 2. Filter Before Pagination
+
+Reduce the result set before paginating:
+
+```ts
+// Good - filter first
+const results = await client.records
+  .query("posts")
+  .filter("status", "=", "published")
+  .page(1, 20)
+  .get();
+
+// Avoid - fetch all then paginate in code
+const allPosts = await client.records.list("posts");
+const page = allPosts.slice(0, 20);
+```
+
+### 3. Cache Pagination Metadata
+
+Store total count and page metadata:
+
+```ts
+const cache = new Map();
+
+async function getPage(page: number) {
+  const cacheKey = `posts:page:${page}`;
+
+  if (cache.has(cacheKey)) {
+    return cache.get(cacheKey);
+  }
+
+  const results = await client.records
+    .query("posts")
+    .page(page, 20)
+    .get();
+
+  cache.set(cacheKey, results);
+  return results;
+}
+```
+
+## Complete Example
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+});
+
+async function browsePosts() {
+  const perPage = 20;
+  let currentPage = 1;
+
+  // Get first page
+  const firstPage = await client.records
+    .query("posts")
+    .filter("status", "=", "published")
+    .sort("createdAt", "desc")
+    .page(currentPage, perPage)
+    .get();
+
+  const totalPages = Math.ceil(firstPage.total / perPage);
+
+  console.log(`Showing ${firstPage.items.length} of ${firstPage.total} posts`);
+  console.log(`Page ${currentPage} of ${totalPages}`);
+
+  // Get next page
+  if (currentPage < totalPages) {
+    const nextPage = await client.records
+      .query("posts")
+      .filter("status", "=", "published")
+      .sort("createdAt", "desc")
+      .page(currentPage + 1, perPage)
+      .get();
+
+    console.log("Next page:", nextPage.items);
+  }
+}
+```
+
+## Reference
+
+### `page(pageNum, perPage?)`
+
+Set page number and size.
+
+**Parameters:**
+- `pageNum` (number) - Page number (1-based)
+- `perPage` (number) - Items per page (default: 30)
+
+**Returns:** `QueryBuilder<T>`
+
+### `limit(count)`
+
+Set maximum records (manual pagination).
+
+**Parameters:**
+- `count` (number) - Maximum records to return
+
+**Returns:** `QueryBuilder<T>`
+
+### `skip(count)`
+
+Set records to skip (manual pagination).
+
+**Parameters:**
+- `count` (number) - Number of records to skip
+
+**Returns:** `QueryBuilder<T>`
+
+## Next Steps
+
+- **[Filtering](/sdk/js/query/filtering)** - Filter query results
+- **[Sorting](/sdk/js/query/sorting)** - Sort query results
+- **[Query Overview](/sdk/js/query/overview)** - Query builder basics

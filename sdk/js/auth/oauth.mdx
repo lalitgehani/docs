@@ -1,0 +1,348 @@
+---
+title: "OAuth Authentication"
+description: "Implement OAuth social login with Google, GitHub, and more"
+---
+
+OAuth authentication allows users to sign in with their existing social accounts. This guide shows you how to implement OAuth with the SnackBase JavaScript SDK.
+
+## Supported OAuth Providers
+
+SnackBase supports the following OAuth providers:
+
+- Google
+- GitHub
+- Microsoft
+- Apple
+
+## OAuth Flow
+
+### 1. Generate Authorization URL
+
+Create the OAuth authorization URL for the provider:
+
+```ts
+const url = client.auth.getOAuthUrl("google", "my-account");
+
+console.log("Authorize URL:", url);
+```
+
+### 2. Redirect User to OAuth Provider
+
+```ts
+// Redirect the user to the OAuth provider
+window.location.href = url;
+```
+
+### 3. Handle OAuth Callback
+
+After the user approves the authorization, they'll be redirected back to your application with a code in the URL. Exchange this code for an access token:
+
+```ts
+// Get the code from the URL query parameters
+const params = new URLSearchParams(window.location.search);
+const code = params.get("code");
+
+// Exchange code for access token
+const auth = await client.auth.handleOAuthCallback({
+  provider: "google",
+  code: code!,
+});
+
+console.log("Logged in as:", auth.user.email);
+```
+
+## Complete OAuth Implementation
+
+### Frontend (Browser)
+
+```tsx
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+  defaultAccount: "my-account",
+});
+
+// Start OAuth flow
+function loginWithGoogle() {
+  const url = client.auth.getOAuthUrl("google", "my-account");
+  window.location.href = url;
+}
+
+// Handle callback on redirect page
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("code");
+
+  if (code) {
+    client.auth.handleOAuthCallback({
+      provider: "google",
+      code,
+    }).then((auth) => {
+      console.log("Logged in:", auth.user.email);
+      // Redirect to app
+      window.location.href = "/dashboard";
+    });
+  }
+}, []);
+```
+
+### With React Router
+
+```tsx
+import { useSearchParams } from "react-router-dom";
+import { useAuth } from "@snackbase/sdk/react";
+
+function OAuthCallback() {
+  const [searchParams] = useSearchParams();
+  const { login } = useAuth();
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const code = searchParams.get("code");
+    const provider = searchParams.get("provider") || "google";
+
+    if (code) {
+      client.auth.handleOAuthCallback({ provider, code })
+        .then((auth) => {
+          // User is now logged in
+          window.location.href = "/dashboard";
+        })
+        .catch((err) => {
+          setError("Authentication failed");
+          console.error(err);
+        });
+    }
+  }, [searchParams]);
+
+  if (error) {
+    return <div>Error: {error}</div>;
+  }
+
+  return <div>Completing authentication...</div>;
+}
+```
+
+## OAuth Provider Configuration
+
+### Google OAuth
+
+```ts
+const url = client.auth.getOAuthUrl("google", "my-account", {
+  redirectUri: "https://myapp.com/oauth/callback",
+});
+```
+
+### GitHub OAuth
+
+```ts
+const url = client.auth.getOAuthUrl("github", "my-account", {
+  redirectUri: "https://myapp.com/oauth/callback",
+});
+```
+
+### Microsoft OAuth
+
+```ts
+const url = client.auth.getOAuthUrl("microsoft", "my-account", {
+  redirectUri: "https://myapp.com/oauth/callback",
+});
+```
+
+### Apple OAuth
+
+```ts
+const url = client.auth.getOAuthUrl("apple", "my-account", {
+  redirectUri: "https://myapp.com/oauth/callback",
+});
+```
+
+<Note>
+  Each provider must be configured in your SnackBase admin panel with the
+  appropriate client ID and secret.
+</Note>
+
+## Custom Redirect URI
+
+Specify a custom redirect URI:
+
+```ts
+const url = client.auth.getOAuthUrl("google", "my-account", {
+  redirectUri: "https://myapp.com/custom-callback",
+});
+```
+
+## State Parameter
+
+Include a state parameter for security:
+
+```ts
+const state = "random-state-string";
+
+const url = client.auth.getOAuthUrl("google", "my-account", {
+  state,
+  redirectUri: "https://myapp.com/oauth/callback",
+});
+
+// Verify state on callback
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("code");
+  const returnedState = params.get("state");
+
+  if (code && returnedState === state) {
+    // Process callback
+    client.auth.handleOAuthCallback({ provider: "google", code });
+  }
+}, []);
+```
+
+## Complete Example with Multiple Providers
+
+```tsx
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+  defaultAccount: "my-account",
+});
+
+function LoginButtons() {
+  const providers = [
+    { name: "Google", id: "google" as const, icon: "🔵" },
+    { name: "GitHub", id: "github" as const, icon: "🐙" },
+    { name: "Microsoft", id: "microsoft" as const, icon: "🟦" },
+    { name: "Apple", id: "apple" as const, icon: "🍎" },
+  ];
+
+  const handleLogin = (provider: typeof providers[number]["id"]) => {
+    const url = client.auth.getOAuthUrl(provider, "my-account", {
+      redirectUri: `${window.location.origin}/oauth/callback`,
+    });
+    window.location.href = url;
+  };
+
+  return (
+    <div>
+      <h2>Sign in with</h2>
+      {providers.map((provider) => (
+        <button
+          key={provider.id}
+          onClick={() => handleLogin(provider.id)}
+        >
+          {provider.icon} Continue with {provider.name}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function OAuthCallbackPage() {
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const code = searchParams.get("code");
+    const provider = searchParams.get("provider") as any;
+
+    if (code && provider) {
+      client.auth
+        .handleOAuthCallback({ provider, code })
+        .then((auth) => {
+          console.log("Logged in:", auth.user.email);
+          window.location.href = "/dashboard";
+        })
+        .catch(console.error);
+    }
+  }, [searchParams]);
+
+  return <div>Completing sign in...</div>;
+}
+```
+
+## Server-Side OAuth
+
+For Next.js and other server-side frameworks:
+
+```tsx
+// app/login/route.ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: process.env.SNACKBASE_URL!,
+});
+
+export async function GET(request: Request) {
+  const url = client.auth.getOAuthUrl("google", "my-account", {
+    redirectUri: `${process.env.APP_URL}/api/oauth/callback`,
+  });
+
+  return Response.redirect(url);
+}
+
+// app/api/oauth/callback/route.ts
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const code = searchParams.get("code");
+
+  if (code) {
+    const auth = await client.auth.handleOAuthCallback({
+      provider: "google",
+      code,
+    });
+
+    // Set session cookie or token
+    // Then redirect
+  }
+
+  return Response.redirect(new URL("/dashboard", request.url));
+}
+```
+
+## Linking OAuth to Existing Accounts
+
+Link an OAuth provider to an existing email/password account:
+
+```ts
+// This would typically be done through the backend API
+// The SDK doesn't currently expose this directly
+```
+
+## Error Handling
+
+Handle common OAuth errors:
+
+```ts
+try {
+  const auth = await client.auth.handleOAuthCallback({
+    provider: "google",
+    code: "invalid-code",
+  });
+} catch (error) {
+  if (error instanceof AuthenticationError) {
+    console.error("OAuth failed:", error.message);
+    // Show error to user
+  } else if (error instanceof NetworkError) {
+    console.error("Network error during OAuth");
+  } else {
+    console.error("Unknown error:", error);
+  }
+}
+```
+
+## OAuth vs Email/Password
+
+Consider these factors when choosing between OAuth and email/password:
+
+| Factor          | OAuth              | Email/Password       |
+| --------------- | ------------------ | -------------------- |
+| Setup           | Requires provider config | Simple              |
+| User Friction   | Low (1-2 clicks)   | Higher (typing)      |
+| Password Mgmt   | None required      | Required             |
+| Data Control    | Limited by provider | Full control         |
+| Offline Access  | No                 | Yes                  |
+
+## Next Steps
+
+- **[Email/Password Auth](/sdk/js/auth/email-password)** - Traditional authentication
+- **[SAML Auth](/sdk/js/auth/saml)** - Enterprise SSO
+- **[API Keys](/sdk/js/auth/api-keys)** - Server authentication

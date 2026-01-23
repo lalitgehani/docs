@@ -1,0 +1,347 @@
+---
+title: "Configuration"
+description: "Configure the SnackBase JavaScript SDK for your needs"
+---
+
+The SnackBase JavaScript SDK provides many configuration options to customize its behavior for your application's needs.
+
+## Configuration Options
+
+### Required Options
+
+#### `baseUrl`
+
+The base URL of your SnackBase instance.
+
+```ts
+const client = new SnackBaseClient({
+  baseUrl: "https://your-project.snackbase.dev",
+});
+```
+
+### Authentication Options
+
+#### `apiKey`
+
+Optional API key for server-to-server authentication.
+
+```ts
+const client = new SnackBaseClient({
+  baseUrl: "https://your-project.snackbase.dev",
+  apiKey: process.env.SNACKBASE_API_KEY,
+});
+```
+
+<Note>
+  API keys should only be used on the server side. Never expose API keys in
+  client-side code.
+</Note>
+
+#### `defaultAccount`
+
+Default account slug for single-tenant applications.
+
+```ts
+const client = new SnackBaseClient({
+  baseUrl: "https://your-project.snackbase.dev",
+  defaultAccount: "my-account",
+});
+```
+
+When set, users don't need to specify the account when logging in.
+
+### Request Options
+
+#### `timeout`
+
+Request timeout in milliseconds. Default: `30000` (30 seconds).
+
+```ts
+const client = new SnackBaseClient({
+  baseUrl: "https://your-project.snackbase.dev",
+  timeout: 60000, // 60 seconds
+});
+```
+
+#### `maxRetries`
+
+Maximum number of retry attempts for failed requests. Default: `3`.
+
+```ts
+const client = new SnackBaseClient({
+  baseUrl: "https://your-project.snackbase.dev",
+  maxRetries: 5,
+});
+```
+
+#### `retryDelay`
+
+Delay between retry attempts in milliseconds. Default: `1000`.
+
+```ts
+const client = new SnackBaseClient({
+  baseUrl: "https://your-project.snackbase.dev",
+  retryDelay: 2000, // 2 seconds
+});
+```
+
+### Storage Options
+
+#### `storageBackend`
+
+Storage backend for authentication tokens. Default: auto-detected based on platform.
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://your-project.snackbase.dev",
+  storageBackend: "localStorage", // or "sessionStorage", "memory"
+});
+```
+
+Available options:
+
+| Backend          | Platform      | Description                     |
+| ---------------- | ------------- | ------------------------------- |
+| `localStorage`   | Web           | Persists across sessions        |
+| `sessionStorage` | Web           | Cleared when tab closes         |
+| `memory`         | Any           | In-memory only                  |
+| `asyncStorage`   | React Native  | Uses React Native AsyncStorage  |
+
+### Token Refresh Options
+
+#### `enableAutoRefresh`
+
+Enable automatic token refresh before expiry. Default: `true`.
+
+```ts
+const client = new SnackBaseClient({
+  baseUrl: "https://your-project.snackbase.dev",
+  enableAutoRefresh: true,
+});
+```
+
+#### `refreshBeforeExpiry`
+
+Seconds before token expiry to refresh. Default: `300` (5 minutes).
+
+```ts
+const client = new SnackBaseClient({
+  baseUrl: "https://your-project.snackbase.dev",
+  refreshBeforeExpiry: 600, // 10 minutes
+});
+```
+
+### Real-Time Options
+
+#### `maxRealTimeRetries`
+
+Maximum reconnection attempts for real-time connections. Default: `10`.
+
+```ts
+const client = new SnackBaseClient({
+  baseUrl: "https://your-project.snackbase.dev",
+  maxRealTimeRetries: 20,
+});
+```
+
+#### `realTimeReconnectionDelay`
+
+Initial delay for real-time reconnection in milliseconds. Default: `1000`.
+
+```ts
+const client = new SnackBaseClient({
+  baseUrl: "https://your-project.snackbase.dev",
+  realTimeReconnectionDelay: 2000,
+});
+```
+
+### Logging Options
+
+#### `enableLogging`
+
+Enable request/response logging. Default: `false` in production.
+
+```ts
+const client = new SnackBaseClient({
+  baseUrl: "https://your-project.snackbase.dev",
+  enableLogging: true,
+});
+```
+
+#### `logLevel`
+
+Logging level. Default: `'error'`.
+
+```ts
+const client = new SnackBaseClient({
+  baseUrl: "https://your-project.snackbase.dev",
+  enableLogging: true,
+  logLevel: "debug", // "debug" | "info" | "warn" | "error"
+});
+```
+
+### Error Callbacks
+
+#### `onAuthError`
+
+Callback for 401 authentication errors.
+
+```ts
+const client = new SnackBaseClient({
+  baseUrl: "https://your-project.snackbase.dev",
+  onAuthError: (error) => {
+    console.error("Auth error:", error);
+    // Redirect to login page
+    window.location.href = "/login";
+  },
+});
+```
+
+#### `onNetworkError`
+
+Callback for network failures.
+
+```ts
+const client = new SnackBaseClient({
+  baseUrl: "https://your-project.snackbase.dev",
+  onNetworkError: (error) => {
+    console.error("Network error:", error);
+    // Show offline message
+  },
+});
+```
+
+#### `onRateLimitError`
+
+Callback for 429 rate limit errors.
+
+```ts
+const client = new SnackBaseClient({
+  baseUrl: "https://your-project.snackbase.dev",
+  onRateLimitError: (error) => {
+    console.warn("Rate limited:", error.retryAfter);
+    // Show rate limit message
+  },
+});
+```
+
+## Complete Configuration Example
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  // Required
+  baseUrl: "https://your-project.snackbase.dev",
+
+  // Authentication
+  apiKey: process.env.SNACKBASE_API_KEY,
+  defaultAccount: "my-account",
+
+  // Request settings
+  timeout: 60000,
+  maxRetries: 5,
+  retryDelay: 2000,
+
+  // Storage
+  storageBackend: "localStorage",
+
+  // Token refresh
+  enableAutoRefresh: true,
+  refreshBeforeExpiry: 600,
+
+  // Real-time
+  maxRealTimeRetries: 20,
+  realTimeReconnectionDelay: 2000,
+
+  // Logging
+  enableLogging: process.env.NODE_ENV === "development",
+  logLevel: "debug",
+
+  // Error callbacks
+  onAuthError: (error) => {
+    console.error("Auth error:", error);
+  },
+  onNetworkError: (error) => {
+    console.error("Network error:", error);
+  },
+  onRateLimitError: (error) => {
+    console.warn("Rate limited:", error.retryAfter);
+  },
+});
+```
+
+## Accessing Configuration
+
+You can access the current configuration at runtime:
+
+```ts
+const config = client.getConfig();
+
+console.log("Base URL:", config.baseUrl);
+console.log("Timeout:", config.timeout);
+console.log("Max retries:", config.maxRetries);
+```
+
+## Environment-Specific Configuration
+
+### Development
+
+```ts
+const client = new SnackBaseClient({
+  baseUrl: "http://localhost:8000",
+  enableLogging: true,
+  logLevel: "debug",
+});
+```
+
+### Production
+
+```ts
+const client = new SnackBaseClient({
+  baseUrl: "https://api.production.com",
+  enableLogging: false,
+  timeout: 30000,
+  maxRetries: 3,
+});
+```
+
+### With React
+
+```tsx
+import { SnackBaseProvider } from "@snackbase/sdk/react";
+
+function App() {
+  return (
+    <SnackBaseProvider
+      baseUrl={process.env.NEXT_PUBLIC_SNACKBASE_URL!}
+      apiKey={process.env.SNACKBASE_API_KEY}
+      defaultAccount="my-account"
+      enableLogging={process.env.NODE_ENV === "development"}
+    >
+      <YourApp />
+    </SnackBaseProvider>
+  );
+}
+```
+
+## Default Configuration
+
+These are the default values used by the SDK:
+
+```ts
+{
+  timeout: 30000,
+  enableAutoRefresh: true,
+  refreshBeforeExpiry: 300,
+  maxRetries: 3,
+  retryDelay: 1000,
+  storageBackend: auto-detected,
+  logLevel: "error",
+  enableLogging: false,
+  maxRealTimeRetries: 10,
+  realTimeReconnectionDelay: 1000,
+}
+```

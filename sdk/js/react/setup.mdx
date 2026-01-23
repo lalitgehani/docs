@@ -1,0 +1,316 @@
+---
+title: "React Setup"
+description: "Set up SnackBase SDK with React"
+---
+
+The SnackBase SDK provides React hooks and context providers for seamless integration with React applications.
+
+## Installation
+
+Install the SDK and React peer dependency:
+
+```bash npm
+npm install @snackbase/sdk react
+```
+
+```bash yarn
+yarn add @snackbase/sdk react
+```
+
+```bash pnpm
+pnpm add @snackbase/sdk react
+```
+
+<Note>
+  React 18 or higher is required for the React integration.
+</Note>
+
+## Setup
+
+### 1. Wrap with Provider
+
+Wrap your application with `SnackBaseProvider`:
+
+```tsx
+import { SnackBaseProvider } from "@snackbase/sdk/react";
+
+function App() {
+  return (
+    <SnackBaseProvider
+      baseUrl="https://api.example.com"
+      apiKey={process.env.SNACKBASE_API_KEY}
+      defaultAccount="my-account"
+    >
+      <YourApp />
+    </SnackBaseProvider>
+  );
+}
+```
+
+### 2. Use Hooks
+
+Use the provided hooks in your components:
+
+```tsx
+import { useAuth, useRecord } from "@snackbase/sdk/react";
+
+function Profile() {
+  const { user, login, logout } = useAuth();
+  const { data: profile, loading } = useRecord("profiles", user?.id);
+
+  if (!user) {
+    return <button onClick={() => login(email, password)}>Login</button>;
+  }
+
+  return (
+    <div>
+      <h1>Welcome, {user.email}</h1>
+      {loading ? <p>Loading...</p> : <pre>{JSON.stringify(profile, null, 2)}</pre>}
+      <button onClick={logout}>Logout</button>
+    </div>
+  );
+}
+```
+
+## Provider Props
+
+| Prop              | Type              | Required | Description                         |
+| ----------------- | ----------------- | -------- | ----------------------------------- |
+| `baseUrl`         | `string`          | Yes      | API base URL                        |
+| `apiKey`          | `string`          | No       | API key for server authentication    |
+| `defaultAccount`  | `string`          | No       | Default account slug                |
+| `timeout`         | `number`          | No       | Request timeout (ms)                 |
+| `maxRetries`      | `number`          | No       | Max retry attempts                   |
+| `storageBackend`  | `StorageBackend`  | No       | Token storage backend                |
+| `enableLogging`   | `boolean`         | No       | Enable request logging               |
+| `logLevel`        | `LogLevel`        | No       | Logging level                       |
+
+## Environment-Specific Setup
+
+### Development
+
+```tsx
+<SnackBaseProvider
+  baseUrl={process.env.NEXT_PUBLIC_SNACKBASE_URL!}
+  defaultAccount="dev-account"
+  enableLogging={true}
+  logLevel="debug"
+>
+  <App />
+</SnackBaseProvider>
+```
+
+### Production
+
+```tsx
+<SnackBaseProvider
+  baseUrl={process.env.NEXT_PUBLIC_SNACKBASE_URL!}
+  apiKey={process.env.SNACKBASE_API_KEY}
+  enableLogging={false}
+>
+  <App />
+</SnackBaseProvider>
+```
+
+## With Next.js
+
+### App Router
+
+```tsx
+// app/layout.tsx
+import { SnackBaseProvider } from "@snackbase/sdk/react";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <SnackBaseProvider
+          baseUrl={process.env.NEXT_PUBLIC_SNACKBASE_URL!}
+        >
+          {children}
+        </SnackBaseProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+### Pages Router
+
+```tsx
+// pages/_app.tsx
+import type { AppProps } from "next/app";
+import { SnackBaseProvider } from "@snackbase/sdk/react";
+
+export default function App({ Component, pageProps }: AppProps) {
+  return (
+    <SnackBaseProvider
+      baseUrl={process.env.NEXT_PUBLIC_SNACKBASE_URL!}
+    >
+      <Component {...pageProps} />
+    </SnackBaseProvider>
+  );
+}
+```
+
+## With Vite
+
+```tsx
+// src/main.tsx
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { SnackBaseProvider } from "@snackbase/sdk/react";
+import App from "./App";
+
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <SnackBaseProvider
+      baseUrl={import.meta.env.VITE_SNACKBASE_URL}
+    >
+      <App />
+    </SnackBaseProvider>
+  </React.StrictMode>
+);
+```
+
+## Access Client Directly
+
+For advanced use cases, access the client directly:
+
+```tsx
+import { useSnackBase } from "@snackbase/sdk/react";
+
+function AdvancedComponent() {
+  const client = useSnackBase();
+
+  useEffect(() => {
+    // Use client directly
+    client.collections.list().then((collections) => {
+      console.log("Collections:", collections);
+    });
+  }, [client]);
+
+  return <div>Check console for collections</div>;
+}
+```
+
+## Server-Side Rendering
+
+For SSR, skip provider on server:
+
+```tsx
+import { SnackBaseProvider } from "@snackbase/sdk/react";
+
+function App({ children }: { children: React.ReactNode }) {
+  // Only provide on client
+  if (typeof window === "undefined") {
+    return <>{children}</>;
+  }
+
+  return (
+    <SnackBaseProvider
+      baseUrl={process.env.NEXT_PUBLIC_SNACKBASE_URL!}
+    >
+      {children}
+    </SnackBaseProvider>
+  );
+}
+```
+
+## TypeScript Support
+
+The React integration is fully typed:
+
+```tsx
+import { useAuth, useRecord } from "@snackbase/sdk/react";
+import type { User, Post } from "@snackbase/sdk";
+
+function Profile() {
+  const { user } = useAuth<User>();
+  const { data: post } = useRecord<Post>("posts", "post-id");
+
+  // user and post are fully typed
+  console.log(user?.email);
+  console.log(post?.title);
+}
+```
+
+## Complete Example
+
+```tsx
+import { SnackBaseProvider, useAuth, useRecord } from "@snackbase/sdk/react";
+
+function App() {
+  return (
+    <SnackBaseProvider
+      baseUrl="https://api.example.com"
+      defaultAccount="my-account"
+    >
+      <Main />
+    </SnackBaseProvider>
+  );
+}
+
+function Main() {
+  const { user, login, logout, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  if (!user) {
+    return <LoginForm onLogin={login} />;
+  }
+
+  return (
+    <div>
+      <header>
+        <h1>Welcome, {user.email}</h1>
+        <button onClick={logout}>Logout</button>
+      </header>
+      <Dashboard />
+    </div>
+  );
+}
+
+function LoginForm({ onLogin }: { onLogin: (credentials: any) => Promise<void> }) {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const email = (form.elements.namedItem("email") as HTMLInputElement).value;
+    const password = (form.elements.namedItem("password") as HTMLInputElement).value;
+    await onLogin({ email, password });
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input name="email" type="email" placeholder="Email" required />
+      <input name="password" type="password" placeholder="Password" required />
+      <button type="submit">Login</button>
+    </form>
+  );
+}
+
+function Dashboard() {
+  const { user } = useAuth();
+  const { data: profile, loading, error } = useRecord("profiles", user?.id || "");
+
+  if (loading) return <div>Loading profile...</div>;
+  if (error) return <div>Error loading profile</div>;
+
+  return (
+    <div>
+      <h2>Profile</h2>
+      <pre>{JSON.stringify(profile, null, 2)}</pre>
+    </div>
+  );
+}
+```
+
+## Next Steps
+
+- **[useAuth Hook](/sdk/js/react/use-auth)** - Authentication hook
+- **[useRecord Hook](/sdk/js/react/use-record)** - Single record fetching
+- **[useQuery Hook](/sdk/js/react/use-query)** - Query building
+- **[useMutation Hook](/sdk/js/react/use-mutation)** - Mutations
+- **[useSubscription Hook](/sdk/js/react/use-subscription)** - Real-time subscriptions

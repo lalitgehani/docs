@@ -1,0 +1,99 @@
+---
+title: "Collections Service"
+description: "Manage collections and their schemas"
+---
+
+The Collections service allows you to create, read, update, and delete collections.
+
+## Overview
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+});
+
+// Access the collections service
+const collections = client.collections;
+```
+
+## List Collections
+
+```ts
+const result = await client.collections.list();
+```
+
+## Get a Collection
+
+```ts
+const collection = await client.collections.get("collection-id");
+```
+
+## Get Collection Names
+
+```ts
+const names = await client.collections.getNames();
+```
+
+## Create a Collection
+
+```ts
+const collection = await client.collections.create({
+  name: "posts",
+  description: "Blog posts and articles",
+  fields: [
+    {
+      name: "title",
+      type: "text",
+      required: true,
+    },
+    {
+      name: "content",
+      type: "text",
+      required: false,
+    },
+  ],
+});
+```
+
+<Note>
+  To update the fields of a collection, you typically need to create a
+  migration. See the Migrations service for more details.
+</Note>
+
+## Update a Collection
+
+```ts
+const updated = await client.collections.update("collection-id", {
+  description: "Updated description",
+});
+```
+
+## Delete a Collection
+
+```ts
+await client.collections.delete("collection-id");
+```
+
+<Warning>
+  Deleting a collection permanently deletes all records within it. This
+  action cannot be undone.
+</Warning>
+
+## Field Types
+
+| Type       | Description                  |
+| ---------- | ---------------------------- |
+| `text`     | Single-line text             |
+| `number`   | Numeric value                |
+| `boolean`  | True/false value               |
+| `date`     | Date/time value                |
+| `select`   | Single choice from options     |
+| `json`     | JSON object                   |
+
+## Next Steps
+
+- **[Records Service](/sdk/js/services/records)** - Manage records in collections
+- **[Query Builder](/sdk/js/query/overview)** - Query collection data
+- **[Rules](/permissions)** - Understand permission rules

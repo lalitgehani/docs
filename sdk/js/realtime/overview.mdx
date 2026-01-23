@@ -1,0 +1,423 @@
+---
+title: "Realtime Overview"
+description: "Build real-time features with WebSocket and SSE"
+---
+
+The Realtime service provides WebSocket and Server-Sent Events (SSE) connections for live data updates in your SnackBase collections.
+
+## Overview
+
+Subscribe to collection changes and receive instant updates when records are created, updated, or deleted:
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+});
+
+// Connect to the realtime service
+await client.realtime.connect();
+
+// Subscribe to a collection
+await client.realtime.subscribe("posts", ["create", "update", "delete"]);
+
+// Listen for events
+client.realtime.on("posts.create", (data) => {
+  console.log("New post created:", data);
+});
+
+client.realtime.on("posts.update", (data) => {
+  console.log("Post updated:", data);
+});
+
+client.realtime.on("posts.delete", (data) => {
+  console.log("Post deleted:", data);
+});
+```
+
+## Connection Methods
+
+SnackBase realtime supports two connection methods:
+
+| Method    | Description                      | Browser Support | Use Case                |
+| --------- | -------------------------------- | --------------- | ----------------------- |
+| WebSocket | Full-duplex, low latency         | Modern browsers | Interactive apps       |
+| SSE       | Simple, one-way server to client | All browsers    | Simple updates, fallback|
+
+The SDK automatically uses WebSocket when available and falls back to SSE.
+
+## Getting Started
+
+### 1. Connect
+
+Connect to the realtime service:
+
+```ts
+await client.realtime.connect();
+```
+
+<Note>
+  The SDK requires an authenticated user for realtime connections. Ensure
+  the user is logged in before connecting.
+</Note>
+
+### 2. Subscribe to Collections
+
+Subscribe to events on a collection:
+
+```ts
+await client.realtime.subscribe("posts", ["create", "update", "delete"]);
+```
+
+### 3. Listen for Events
+
+Listen for specific events:
+
+```ts
+client.realtime.on("posts.create", (data) => {
+  console.log("New post:", data);
+});
+```
+
+### 4. Disconnect
+
+Disconnect when done:
+
+```ts
+client.realtime.disconnect();
+```
+
+## Connection States
+
+Monitor the connection state:
+
+```ts
+// Get current state
+const state = client.realtime.getState(); // "disconnected" | "connecting" | "connected" | "error"
+
+// Listen for state changes
+client.realtime.on("connected", () => {
+  console.log("Connected to realtime");
+});
+
+client.realtime.on("disconnected", () => {
+  console.log("Disconnected from realtime");
+});
+
+client.realtime.on("error", (error) => {
+  console.error("Realtime error:", error);
+});
+```
+
+## Subscription Events
+
+Subscribe to specific operations:
+
+```ts
+// All operations
+await client.realtime.subscribe("posts");
+
+// Specific operations
+await client.realtime.subscribe("posts", ["create"]);
+await client.realtime.subscribe("posts", ["create", "update"]);
+await client.realtime.subscribe("posts", ["create", "update", "delete"]);
+```
+
+## Event Data Structure
+
+Events include the complete record data:
+
+```ts
+client.realtime.on("posts.create", (data) => {
+  console.log(data.id);
+  console.log(data.title);
+  console.log(data.content);
+  console.log(data.createdAt);
+  // ... all record fields
+});
+```
+
+## Multiple Subscriptions
+
+Subscribe to multiple collections:
+
+```ts
+await client.realtime.subscribe("posts");
+await client.realtime.subscribe("comments");
+await client.realtime.subscribe("likes");
+
+client.realtime.on("posts.create", (data) => {
+  console.log("New post:", data);
+});
+
+client.realtime.on("comments.create", (data) => {
+  console.log("New comment:", data);
+});
+
+client.realtime.on("likes.create", (data) => {
+  console.log("New like:", data);
+});
+```
+
+## Wildcard Events
+
+Use wildcards to listen to all events:
+
+```ts
+// All events on all collections
+client.realtime.on("*", (data) => {
+  console.log("Any event:", data);
+});
+
+// All events on a specific collection
+client.realtime.on("posts.*", (data) => {
+  console.log("Any posts event:", data);
+});
+```
+
+## Unsubscribing
+
+Unsubscribe from a collection:
+
+```ts
+await client.realtime.unsubscribe("posts");
+```
+
+Remove event listeners:
+
+```ts
+// The on() method returns an unsubscribe function
+const unsubscribe = client.realtime.on("posts.create", (data) => {
+  console.log("New post:", data);
+});
+
+// Stop listening
+unsubscribe();
+```
+
+## Complete Example
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+});
+
+async function setupRealtime() {
+  // Authenticate first
+  await client.auth.loginWithPassword({
+    email: "user@example.com",
+    password: "password",
+  });
+
+  // Connect to realtime
+  await client.realtime.connect();
+
+  // Subscribe to posts
+  await client.realtime.subscribe("posts", ["create", "update", "delete"]);
+
+  // Listen for events
+  client.realtime.on("posts.create", (post) => {
+    console.log("New post created:", post.title);
+    // Update UI
+  });
+
+  client.realtime.on("posts.update", (post) => {
+    console.log("Post updated:", post.title);
+    // Update UI
+  });
+
+  client.realtime.on("posts.delete", (post) => {
+    console.log("Post deleted:", post.id);
+    // Remove from UI
+  });
+
+  // Handle connection events
+  client.realtime.on("connected", () => {
+    console.log("Realtime connected");
+  });
+
+  client.realtime.on("disconnected", () => {
+    console.log("Realtime disconnected - will reconnect");
+  });
+
+  client.realtime.on("error", (error) => {
+    console.error("Realtime error:", error);
+  });
+}
+```
+
+## React Integration
+
+Use realtime with React:
+
+```tsx
+import { useEffect, useState } from "react";
+import { useSnackBase } from "@snackbase/sdk/react";
+
+function PostList() {
+  const client = useSnackBase();
+  const [posts, setPosts] = useState<Post[]>([]);
+
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+
+    async function setup() {
+      // Connect
+      await client.realtime.connect();
+
+      // Subscribe
+      await client.realtime.subscribe("posts");
+
+      // Listen for new posts
+      unsubscribe = client.realtime.on("posts.create", (post) => {
+        setPosts((prev) => [...prev, post]);
+      });
+
+      // Listen for updates
+      client.realtime.on("posts.update", (post) => {
+        setPosts((prev) =>
+          prev.map((p) => (p.id === post.id ? post : p))
+        );
+      });
+
+      // Listen for deletions
+      client.realtime.on("posts.delete", (post) => {
+        setPosts((prev) => prev.filter((p) => p.id !== post.id));
+      });
+    }
+
+    setup();
+
+    // Cleanup
+    return () => {
+      unsubscribe?.();
+      client.realtime.disconnect();
+    };
+  }, [client]);
+
+  return (
+    <ul>
+      {posts.map((post) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## Reconnection
+
+The SDK automatically reconnects on connection loss:
+
+```ts
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+  maxRealTimeRetries: 10,        // Max reconnection attempts
+  realTimeReconnectionDelay: 1000, // Initial delay (ms)
+});
+```
+
+Reconnection uses exponential backoff:
+
+| Attempt | Delay      |
+| ------- | ---------- |
+| 1       | 1 second   |
+| 2       | 2 seconds  |
+| 3       | 4 seconds  |
+| 4       | 8 seconds  |
+| ...     | ...        |
+| Max     | 30 seconds |
+
+## Authentication and Realtime
+
+Token refresh is handled automatically:
+
+```ts
+// Initial connection
+await client.realtime.connect();
+
+// Token is refreshed automatically
+// Connection is re-established with new token
+```
+
+## Error Handling
+
+Handle realtime errors:
+
+```ts
+client.realtime.on("error", (error) => {
+  console.error("Realtime error:", error.message);
+
+  // Check error type
+  if (error.message.includes("authentication")) {
+    console.error("Auth failed - please log in again");
+  } else if (error.message.includes("network")) {
+    console.error("Network error - will reconnect");
+  }
+});
+
+client.realtime.on("auth_error", (error) => {
+  console.error("Authentication error:", error);
+  // Redirect to login
+});
+```
+
+## Best Practices
+
+### 1. Subscribe to What You Need
+
+Only subscribe to collections and operations you need:
+
+```ts
+// Good - specific operations
+await client.realtime.subscribe("posts", ["create"]);
+
+// Avoid - all operations if you only need create
+await client.realtime.subscribe("posts");
+```
+
+### 2. Clean Up Subscriptions
+
+Always unsubscribe when done:
+
+```ts
+useEffect(() => {
+  const unsubscribe = client.realtime.on("posts.create", handler);
+
+  return () => {
+    unsubscribe();
+    client.realtime.disconnect();
+  };
+}, []);
+```
+
+### 3. Handle Connection States
+
+Show connection status to users:
+
+```tsx
+const [connectionState, setConnectionState] = useState("disconnected");
+
+client.realtime.on("connected", () => setConnectionState("connected"));
+client.realtime.on("connecting", () => setConnectionState("connecting"));
+client.realtime.on("disconnected", () => setConnectionState("disconnected"));
+
+return (
+  <div>
+    <div className="status">
+      {connectionState === "connected" && <span className="green">Live</span>}
+      {connectionState === "connecting" && <span className="yellow">Connecting...</span>}
+      {connectionState === "disconnected" && <span className="red">Disconnected</span>}
+    </div>
+  </div>
+);
+```
+
+## Next Steps
+
+- **[WebSocket](/sdk/js/realtime/websocket)** - WebSocket-specific features
+- **[SSE](/sdk/js/realtime/sse)** - Server-Sent Events
+- **[Events](/sdk/js/realtime/events)** - Event reference

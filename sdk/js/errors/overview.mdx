@@ -1,0 +1,375 @@
+---
+title: "Error Handling Overview"
+description: "Handle errors in the SnackBase JavaScript SDK"
+---
+
+The SnackBase SDK provides a comprehensive error handling system with typed error classes for different failure scenarios.
+
+## Overview
+
+All SDK errors extend from the base `SnackBaseError` class, allowing you to catch errors generically or handle specific error types:
+
+```ts
+import {
+  SnackBaseError,
+  AuthenticationError,
+  ValidationError,
+  NetworkError,
+} from "@snackbase/sdk";
+
+try {
+  const post = await client.records.create("posts", data);
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.error("Validation failed:", error.fields);
+  } else if (error instanceof AuthenticationError) {
+    console.error("Authentication required");
+  } else if (error instanceof SnackBaseError) {
+    console.error("SDK error:", error.message);
+  } else {
+    console.error("Unknown error:", error);
+  }
+}
+```
+
+## Error Hierarchy
+
+```
+SnackBaseError (base class)
+├── AuthenticationError (401)
+├── AuthorizationError (403)
+├── NotFoundError (404)
+├── ConflictError (409)
+├── ValidationError (422)
+├── RateLimitError (429)
+├── NetworkError
+├── TimeoutError
+└── ServerError (500+)
+```
+
+## Error Properties
+
+All errors include the following properties:
+
+```ts
+interface SnackBaseError {
+  message: string;        // Human-readable error message
+  code: string;          // Error code (e.g., "AUTHENTICATION_ERROR")
+  status?: number;       // HTTP status code
+  details?: any;         // Additional error details
+  field?: string;        // Field name (for validation errors)
+  retryable: boolean;    // Whether the request can be retried
+}
+```
+
+## Error Types
+
+### AuthenticationError (401)
+
+Thrown when authentication fails or tokens are invalid:
+
+```ts
+try {
+  await client.auth.loginWithPassword({
+    email: "user@example.com",
+    password: "wrong-password",
+  });
+} catch (error) {
+  if (error instanceof AuthenticationError) {
+    console.error("Invalid credentials");
+    // Redirect to login
+  }
+}
+```
+
+### AuthorizationError (403)
+
+Thrown when the user lacks permission for an action:
+
+```ts
+try {
+  await client.records.delete("posts", "post-id");
+} catch (error) {
+  if (error instanceof AuthorizationError) {
+    console.error("You don't have permission to delete this post");
+    // Show permission error to user
+  }
+}
+```
+
+### NotFoundError (404)
+
+Thrown when a resource is not found:
+
+```ts
+try {
+  const post = await client.records.get("posts", "non-existent-id");
+} catch (error) {
+  if (error instanceof NotFoundError) {
+    console.error("Post not found");
+    // Show 404 page
+  }
+}
+```
+
+### ConflictError (409)
+
+Thrown when a resource conflict occurs (e.g., duplicate):
+
+```ts
+try {
+  await client.users.create({
+    email: "existing@example.com",
+    password: "password",
+  });
+} catch (error) {
+  if (error instanceof ConflictError) {
+    console.error("User with this email already exists");
+    // Show error to user
+  }
+}
+```
+
+### ValidationError (422)
+
+Thrown when request validation fails:
+
+```ts
+try {
+  await client.records.create("posts", {
+    title: "",  // Required field is empty
+  });
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.error("Validation failed:", error.fields);
+    // { title: ["This field is required"] }
+    // Show field-specific errors
+  }
+}
+```
+
+### RateLimitError (429)
+
+Thrown when rate limit is exceeded:
+
+```ts
+try {
+  await client.records.list("posts");
+} catch (error) {
+  if (error instanceof RateLimitError) {
+    console.error("Rate limited. Retry after:", error.retryAfter, "seconds");
+    // Show rate limit message
+  }
+}
+```
+
+### NetworkError
+
+Thrown when network request fails:
+
+```ts
+try {
+  await client.records.list("posts");
+} catch (error) {
+  if (error instanceof NetworkError) {
+    console.error("Network error - please check your connection");
+    // Show offline message
+  }
+}
+```
+
+### TimeoutError
+
+Thrown when request times out:
+
+```ts
+try {
+  await client.records.list("posts");
+} catch (error) {
+  if (error instanceof TimeoutError) {
+    console.error("Request timed out");
+    // Show timeout message
+  }
+}
+```
+
+### ServerError (500+)
+
+Thrown when server error occurs:
+
+```ts
+try {
+  await client.records.list("posts");
+} catch (error) {
+  if (error instanceof ServerError) {
+    console.error("Server error:", error.status);
+    // Show server error message
+  }
+}
+```
+
+## Global Error Handlers
+
+Configure global error callbacks:
+
+```ts
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+  onAuthError: (error) => {
+    console.error("Auth error:", error);
+    // Redirect to login
+  },
+  onNetworkError: (error) => {
+    console.error("Network error:", error);
+    // Show offline banner
+  },
+  onRateLimitError: (error) => {
+    console.error("Rate limited:", error.retryAfter);
+    // Show rate limit message
+  },
+});
+```
+
+## React Error Handling
+
+```tsx
+function PostDetail({ postId }: { postId: string }) {
+  const { data: post, loading, error } = useRecord("posts", postId);
+
+  if (loading) return <div>Loading...</div>;
+
+  if (error) {
+    if (error instanceof NotFoundError) {
+      return <div>Post not found</div>;
+    }
+    if (error instanceof ValidationError) {
+      return <div>Invalid request</div>;
+    }
+    return <div>Error loading post</div>;
+  }
+
+  return <PostContent post={post} />;
+}
+```
+
+## Retry Logic
+
+Check if error is retryable:
+
+```ts
+async function fetchWithRetry(collection: string, maxRetries = 3) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await client.records.list(collection);
+    } catch (error) {
+      if (error instanceof SnackBaseError && error.retryable && i < maxRetries - 1) {
+        const delay = Math.pow(2, i) * 1000;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+```
+
+## Custom Error Handler
+
+Create a custom error handler:
+
+```ts
+async function handleApiCall<T>(
+  fn: () => Promise<T>
+): Promise<T | null> {
+  try {
+    return await fn();
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      console.error("Validation error:", error.fields);
+      showFieldErrors(error.fields);
+    } else if (error instanceof AuthenticationError) {
+      console.error("Authentication failed");
+      redirectToLogin();
+    } else if (error instanceof AuthorizationError) {
+      console.error("Permission denied");
+      showPermissionError();
+    } else if (error instanceof NotFoundError) {
+      console.error("Resource not found");
+      showNotFoundError();
+    } else if (error instanceof RateLimitError) {
+      console.error("Rate limited:", error.retryAfter);
+      showRateLimitError(error.retryAfter);
+    } else if (error instanceof NetworkError) {
+      console.error("Network error");
+      showNetworkError();
+    } else {
+      console.error("Unknown error:", error);
+      showGenericError();
+    }
+    return null;
+  }
+}
+
+// Usage
+const post = await handleApiCall(() =>
+  client.records.get("posts", "post-id")
+);
+```
+
+## Complete Example
+
+```ts
+import {
+  SnackBaseError,
+  AuthenticationError,
+  ValidationError,
+  NetworkError,
+} from "@snackbase/sdk";
+
+async function createPost(data: PostCreate) {
+  try {
+    const post = await client.records.create("posts", data);
+    return { success: true, data: post };
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      return {
+        success: false,
+        error: "Validation failed",
+        fields: error.fields,
+      };
+    }
+
+    if (error instanceof AuthenticationError) {
+      return {
+        success: false,
+        error: "Please log in to create posts",
+      };
+    }
+
+    if (error instanceof AuthorizationError) {
+      return {
+        success: false,
+        error: "You don't have permission to create posts",
+      };
+    }
+
+    if (error instanceof NetworkError) {
+      return {
+        success: false,
+        error: "Network error - please check your connection",
+      };
+    }
+
+    return {
+      success: false,
+      error: "An unexpected error occurred",
+    };
+  }
+}
+```
+
+## Next Steps
+
+- **[Error Types](/sdk/js/errors/types)** - Complete error type reference
+- **[Authentication](/sdk/js/auth/overview)** - Authentication error handling
+- **[Configuration](/sdk/js/configuration)** - Error callback configuration

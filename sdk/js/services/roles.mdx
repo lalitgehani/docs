@@ -1,0 +1,83 @@
+---
+title: "Roles Service"
+description: "Manage roles and permissions for access control"
+---
+
+The Roles service provides methods for managing roles and permissions.
+
+## Overview
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+});
+
+// Access the roles service
+const roles = client.roles;
+```
+
+## List Roles
+
+```ts
+const result = await client.roles.list();
+```
+
+## Get a Role
+
+```ts
+const role = await client.roles.get("role-id");
+```
+
+## Create a Role
+
+```ts
+const role = await client.roles.create({
+  name: "editor",
+  description: "Can create and edit content",
+  permissions: [
+    {
+      collectionId: "posts",
+      actions: ["create", "read", "update"],
+    },
+  ],
+});
+```
+
+## Update a Role
+
+```ts
+const updated = await client.roles.update("role-id", {
+  name: "Senior Editor",
+});
+```
+
+## Delete a Role
+
+```ts
+await client.roles.delete("role-id");
+```
+
+<Warning>
+  Deleting a role removes it from all users who have it. Ensure users have
+  alternative roles before deleting.
+</Warning>
+
+## Assign Role to User
+
+```ts
+await client.roles.assignToUser("role-id", "user-id");
+```
+
+## Remove Role from User
+
+```ts
+await client.roles.removeFromUser("role-id", "user-id");
+```
+
+## Next Steps
+
+- **[Groups Service](/sdk/js/services/groups)** - Manage user groups
+- **[Collection Rules](/sdk/js/services/collections)** - Fine-grained access control
+- **[Permissions](/permissions)** - Understand the permission system

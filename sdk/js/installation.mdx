@@ -1,0 +1,101 @@
+---
+title: "Installation"
+description: "Install and configure the SnackBase JavaScript SDK in your project"
+---
+
+The SnackBase JavaScript SDK provides a type-safe, feature-complete interface for interacting with SnackBase from JavaScript and TypeScript applications.
+
+## Prerequisites
+
+Before installing the SDK, ensure you have:
+
+- **Node.js 18+** or a compatible runtime
+- **npm**, **yarn**, or **pnpm** for package management
+- A SnackBase instance (local or hosted)
+
+## Installation
+
+### npm
+
+```bash npm
+npm install @snackbase/sdk
+```
+
+### yarn
+
+```bash yarn
+yarn add @snackbase/sdk
+```
+
+### pnpm
+
+```bash pnpm
+pnpm add @snackbase/sdk
+```
+
+### React Integration
+
+If you're using React, you'll also need React installed as a peer dependency:
+
+```bash npm
+npm install @snackbase/sdk react
+```
+
+<Note>
+  The React integration is exported from the same package (`@snackbase/sdk/react`)
+  and requires React 18 or higher.
+</Note>
+
+## Platform Support
+
+The SDK works across multiple JavaScript environments:
+
+| Platform          | Support Level | Notes                           |
+| ----------------- | ------------- | ------------------------------- |
+| Modern Browsers   | Full          | Chrome, Firefox, Safari, Edge   |
+| React Native      | Full          | Uses AsyncStorage for tokens   |
+| Node.js 18+       | Full          | Server-side rendering, APIs     |
+| Next.js           | Full          | Both App and Pages routers      |
+| Vue/Nuxt          | Full          | Via the core SDK                |
+| Svelte/SvelteKit  | Full          | Via the core SDK                |
+
+## TypeScript Support
+
+The SDK is written in TypeScript and includes full type definitions. No additional `@types` packages are needed.
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+// Full autocomplete and type safety
+const client = new SnackBaseClient({
+  baseUrl: "https://your-project.snackbase.dev",
+});
+```
+
+## Bundle Size
+
+The SDK is optimized for production use:
+
+- **Core SDK**: 14.87 KB (gzipped)
+- **React Integration**: 1.42 KB (gzipped)
+- **Total**: 16.29 KB (gzipped)
+
+## Verification
+
+After installation, verify the SDK is working:
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://your-project.snackbase.dev",
+});
+
+console.log("SnackBase SDK version:", client.getConfig().version);
+```
+
+## Next Steps
+
+- **[Quick Start Guide](/sdk/js/quickstart)** - Get started with your first query
+- **[Configuration](/sdk/js/configuration)** - Explore all configuration options
+- **[Authentication](/sdk/js/auth/overview)** - Learn about authentication methods

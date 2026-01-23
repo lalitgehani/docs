@@ -1,0 +1,370 @@
+---
+title: "Client Reference"
+description: "Complete reference for the SnackBaseClient class"
+---
+
+This is a complete reference for the `SnackBaseClient` class, the main entry point for the SnackBase JavaScript SDK.
+
+## Constructor
+
+Create a new SnackBaseClient instance:
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient(config: SnackBaseConfig);
+```
+
+### Configuration
+
+```ts
+interface SnackBaseConfig {
+  // Required
+  baseUrl: string;
+
+  // Optional - Authentication
+  apiKey?: string;
+  defaultAccount?: string;
+
+  // Optional - Request settings
+  timeout?: number;
+  maxRetries?: number;
+  retryDelay?: number;
+
+  // Optional - Token management
+  enableAutoRefresh?: boolean;
+  refreshBeforeExpiry?: number;
+  storageBackend?: StorageBackend;
+
+  // Optional - Realtime
+  maxRealTimeRetries?: number;
+  realTimeReconnectionDelay?: number;
+
+  // Optional - Logging
+  enableLogging?: boolean;
+  logLevel?: LogLevel;
+
+  // Optional - Error callbacks
+  onAuthError?: (error: any) => void;
+  onNetworkError?: (error: any) => void;
+  onRateLimitError?: (error: any) => void;
+}
+
+type StorageBackend = "localStorage" | "sessionStorage" | "memory" | "asyncStorage";
+type LogLevel = "debug" | "info" | "warn" | "error";
+```
+
+## Properties
+
+### Auth State
+
+```ts
+// Current authenticated user
+client.user: User | null
+
+// Current account
+client.account: Account | null
+
+// Authentication status
+client.isAuthenticated: boolean
+```
+
+### Services
+
+```ts
+// Authentication service
+client.auth: AuthService
+
+// Account management
+client.accounts: AccountService
+
+// User management
+client.users: UserService
+
+// Collection management
+client.collections: CollectionService
+
+// Record operations
+client.records: RecordService
+
+// Group management
+client.groups: GroupsService
+
+// Invitation management
+client.invitations: InvitationService
+
+// API key management
+client.apiKeys: ApiKeyService
+
+// Audit log access
+client.auditLogs: AuditLogService
+
+// Role management
+client.roles: RoleService
+
+// Collection rule management
+client.collectionRules: CollectionRuleService
+
+// Macro operations
+client.macros: MacroService
+
+// Dashboard statistics
+client.dashboard: DashboardService
+
+// System administration
+client.admin: AdminService
+
+// Email template management
+client.emailTemplates: EmailTemplateService
+
+// File management
+client.files: FileService
+
+// Real-time features
+client.realtime: RealTimeService
+
+// Migration status
+client.migrations: MigrationService
+```
+
+## Methods
+
+### Configuration
+
+#### `getConfig()`
+
+Get the current client configuration.
+
+```ts
+const config = client.getConfig(): Required<SnackBaseConfig>
+```
+
+**Returns:** The merged configuration object with defaults applied.
+
+---
+
+### Authentication
+
+#### `login(credentials)`
+
+Authenticate with email and password.
+
+```ts
+await client.login(credentials: LoginCredentials): Promise<AuthResponse>
+```
+
+**Alias for:** `client.auth.loginWithPassword()`
+
+---
+
+#### `logout()`
+
+Log out the current user.
+
+```ts
+await client.logout(): Promise<void>
+```
+
+**Alias for:** `client.auth.logout()`
+
+---
+
+#### `register(data)`
+
+Register a new user and account.
+
+```ts
+await client.register(data: RegisterData): Promise<AuthResponse>
+```
+
+**Alias for:** `client.auth.register()`
+
+---
+
+#### `refreshToken()`
+
+Refresh the access token.
+
+```ts
+await client.refreshToken(): Promise<TokenResponse>
+```
+
+**Alias for:** `client.auth.refreshToken()`
+
+---
+
+#### `getCurrentUser()`
+
+Get the current authenticated user profile.
+
+```ts
+await client.getCurrentUser(): Promise<User>
+```
+
+**Alias for:** `client.auth.getCurrentUser()`
+
+---
+
+#### `forgotPassword(data)`
+
+Initiate password reset flow.
+
+```ts
+await client.forgotPassword(data: PasswordResetRequest): Promise<void>
+```
+
+**Alias for:** `client.auth.forgotPassword()`
+
+---
+
+#### `resetPassword(data)`
+
+Reset password using a token.
+
+```ts
+await client.resetPassword(data: PasswordResetConfirm): Promise<void>
+```
+
+**Alias for:** `client.auth.resetPassword()`
+
+---
+
+#### `verifyEmail(token)`
+
+Verify email using a token.
+
+```ts
+await client.verifyEmail(token: string): Promise<void>
+```
+
+**Alias for:** `client.auth.verifyEmail()`
+
+---
+
+#### `resendVerificationEmail()`
+
+Resend the verification email to the current user.
+
+```ts
+await client.resendVerificationEmail(): Promise<void>
+```
+
+**Alias for:** `client.auth.resendVerificationEmail()`
+
+---
+
+#### `getSAMLUrl(provider, account, relayState?)`
+
+Generate SAML SSO authorization URL.
+
+```ts
+await client.getSAMLUrl(
+  provider: SAMLProvider,
+  account: string,
+  relayState?: string
+): Promise<string>
+```
+
+**Alias for:** `client.auth.getSAMLUrl()`
+
+---
+
+#### `handleSAMLCallback(params)`
+
+Handle SAML callback.
+
+```ts
+await client.handleSAMLCallback(params: SAMLCallbackParams): Promise<AuthResponse>
+```
+
+**Alias for:** `client.auth.handleSAMLCallback()`
+
+---
+
+#### `getSAMLMetadata(provider, account)`
+
+Get SAML metadata.
+
+```ts
+await client.getSAMLMetadata(
+  provider: SAMLProvider,
+  account: string
+): Promise<string>
+```
+
+**Alias for:** `client.auth.getSAMLMetadata()`
+
+---
+
+### Events
+
+#### `on(event, listener)`
+
+Subscribe to authentication events.
+
+```ts
+client.on<K extends keyof AuthEvents>(
+  event: K,
+  listener: AuthEvents[K]
+): () => void
+```
+
+**Returns:** Unsubscribe function
+
+**Events:**
+- `auth:login` - User logged in
+- `auth:logout` - User logged out
+- `auth:refresh` - Token refreshed
+- `auth:error` - Authentication error
+
+**Example:**
+```ts
+const unsubscribe = client.on("auth:login", (state) => {
+  console.log("User logged in:", state.user);
+});
+
+// Unsubscribe later
+unsubscribe();
+```
+
+---
+
+## Complete Example
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+  defaultAccount: "my-account",
+  timeout: 30000,
+  maxRetries: 3,
+  enableLogging: true,
+  logLevel: "debug",
+});
+
+// Listen to auth events
+client.on("auth:login", (state) => {
+  console.log("Logged in as:", state.user.email);
+});
+
+client.on("auth:logout", () => {
+  console.log("Logged out");
+  window.location.href = "/login";
+});
+
+// Use services
+const posts = await client.records.list("posts");
+const collections = await client.collections.list();
+
+// Access auth state
+console.log("Authenticated:", client.isAuthenticated);
+console.log("User:", client.user);
+console.log("Account:", client.account);
+```
+
+## Next Steps
+
+- **[Type Reference](/sdk/js/reference/types)** - Type definitions
+- **[Services](/sdk/js/services/records)** - Service references
+- **[Configuration](/sdk/js/configuration)** - Configuration options

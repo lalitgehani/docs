@@ -1,0 +1,613 @@
+---
+title: "Type Reference"
+description: "TypeScript type definitions for the SDK"
+---
+
+This is a reference for the main TypeScript types exported by the SnackBase JavaScript SDK.
+
+## Core Types
+
+### SnackBaseClient
+
+The main SDK client class.
+
+```ts
+class SnackBaseClient {
+  constructor(config: SnackBaseConfig)
+
+  // Auth state
+  readonly user: User | null
+  readonly account: Account | null
+  readonly isAuthenticated: boolean
+
+  // Services
+  readonly auth: AuthService
+  readonly accounts: AccountService
+  readonly users: UserService
+  readonly collections: CollectionService
+  readonly records: RecordService
+  readonly groups: GroupsService
+  readonly invitations: InvitationService
+  readonly apiKeys: ApiKeyService
+  readonly auditLogs: AuditLogService
+  readonly roles: RoleService
+  readonly collectionRules: CollectionRuleService
+  readonly macros: MacroService
+  readonly dashboard: DashboardService
+  readonly admin: AdminService
+  readonly emailTemplates: EmailTemplateService
+  readonly files: FileService
+  readonly realtime: RealTimeService
+  readonly migrations: MigrationService
+
+  // Methods
+  getConfig(): Required&lt;SnackBaseConfig&gt;
+  on&lt;K extends keyof AuthEvents&gt;(event: K, listener: AuthEvents[K]): () =&gt; void
+  login(credentials: LoginCredentials): Promise&lt;AuthResponse&gt;
+  logout(): Promise&lt;void&gt;
+  // ... (see Client Reference for full method list)
+}
+```
+
+---
+
+### SnackBaseConfig
+
+Client configuration options.
+
+```ts
+interface SnackBaseConfig {
+  // Required
+  baseUrl: string;
+
+  // Optional - Authentication
+  apiKey?: string;
+  defaultAccount?: string;
+
+  // Optional - Request settings
+  timeout?: number;
+  maxRetries?: number;
+  retryDelay?: number;
+
+  // Optional - Token management
+  enableAutoRefresh?: boolean;
+  refreshBeforeExpiry?: number;
+  storageBackend?: StorageBackend;
+
+  // Optional - Realtime
+  maxRealTimeRetries?: number;
+  realTimeReconnectionDelay?: number;
+
+  // Optional - Logging
+  enableLogging?: boolean;
+  logLevel?: LogLevel;
+
+  // Optional - Error callbacks
+  onAuthError?: (error: any) =&gt; void;
+  onNetworkError?: (error: any) =&gt; void;
+  onRateLimitError?: (error: any) =&gt; void;
+}
+```
+
+---
+
+## Authentication Types
+
+### User
+
+User account information.
+
+```ts
+interface User {
+  id: string;
+  email: string;
+  fullName?: string;
+  avatarUrl?: string;
+  isActive: boolean;
+  isEmailVerified: boolean;
+  roleIds: string[];
+  account: {
+    id: string;
+    name: string;
+    slug: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+---
+
+### Account
+
+Account information.
+
+```ts
+interface Account {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  settings?: Record&lt;string, any&gt;;
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+---
+
+### AuthState
+
+Authentication state.
+
+```ts
+interface AuthState {
+  user: User | null;
+  account: Account | null;
+  token: string | null;
+  refreshToken: string | null;
+  isAuthenticated: boolean;
+  expiresAt: string | null;
+}
+```
+
+---
+
+### AuthEvents
+
+Authentication event types.
+
+```ts
+interface AuthEvents {
+  "auth:login": (state: AuthState) =&gt; void;
+  "auth:logout": () =&gt; void;
+  "auth:refresh": (state: AuthState) =&gt; void;
+  "auth:error": (error: Error) =&gt; void;
+}
+```
+
+---
+
+### LoginCredentials
+
+Email/password login credentials.
+
+```ts
+interface LoginCredentials {
+  account: string;
+  email: string;
+  password: string;
+}
+```
+
+---
+
+### RegisterData
+
+User registration data.
+
+```ts
+interface RegisterData {
+  email: string;
+  password: string;
+  accountName: string;
+  accountSlug?: string;
+}
+```
+
+---
+
+## Collection Types
+
+### Collection
+
+Collection definition.
+
+```ts
+interface Collection {
+  id: string;
+  name: string;
+  description?: string;
+  fields: Field[];
+  accountId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+---
+
+### Field
+
+Collection field definition.
+
+```ts
+interface Field {
+  name: string;
+  type: FieldType;
+  required?: boolean;
+  unique?: boolean;
+  options?: FieldOptions;
+}
+
+type FieldType =
+  | "text"
+  | "number"
+  | "boolean"
+  | "date"
+  | "select"
+  | "multiselect"
+  | "file"
+  | "json"
+  | "relation";
+
+interface FieldOptions {
+  // Text options
+  multiline?: boolean;
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
+
+  // Number options
+  min?: number;
+  max?: number;
+  default?: number;
+
+  // Select options
+  choices?: string[];
+
+  // Relation options
+  relatedCollection?: string;
+}
+```
+
+---
+
+## Record Types
+
+### BaseRecord
+
+Base properties for all records.
+
+```ts
+interface BaseRecord {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+---
+
+### RecordListParams
+
+Query parameters for listing records.
+
+```ts
+interface RecordListParams {
+  filter?: string | Record&lt;string, any&gt;;
+  sort?: string;
+  skip?: number;
+  limit?: number;
+  fields?: string[] | string;
+  expand?: string[] | string;
+}
+```
+
+---
+
+### RecordListResponse
+
+Response from listing records.
+
+```ts
+interface RecordListResponse&lt;T&gt; {
+  items: (T & BaseRecord)[];
+  total: number;
+  skip: number;
+  limit: number;
+}
+```
+
+---
+
+## Query Types
+
+### FilterOperator
+
+Filter operators for queries.
+
+```ts
+type FilterOperator =
+  | "="   // Equals
+  | "!="  // Not equals
+  | "&gt;"   // Greater than
+  | "&gt;="  // Greater than or equal
+  | "&lt;"   // Less than
+  | "&lt;="  // Less than or equal
+  | "~"   // Contains
+  | "!~"  // Does not contain
+  | "?="  // Is empty
+  | "?!"; // Is not empty
+```
+
+---
+
+### SortDirection
+
+Sort direction.
+
+```ts
+type SortDirection = "asc" | "desc";
+```
+
+---
+
+### QueryBuilder
+
+Query builder class.
+
+```ts
+class QueryBuilder&lt;T = any&gt; {
+  select(fields: string | string[]): this;
+  expand(relations: string | string[]): this;
+  filter(field: string, operator: FilterOperator, value?: any): this;
+  filter(filterString: string): this;
+  sort(field: string, direction?: SortDirection): this;
+  limit(count: number): this;
+  skip(count: number): this;
+  page(pageNum: number, perPage?: number): this;
+  get(): Promise&lt;RecordListResponse&lt;T&gt;&gt;;
+  first(): Promise&lt;(T & BaseRecord) | null&gt;;
+}
+```
+
+---
+
+## Realtime Types
+
+### RealTimeState
+
+Realtime connection state.
+
+```ts
+type RealTimeState = "disconnected" | "connecting" | "connected" | "error";
+```
+
+---
+
+### ServerMessage
+
+Realtime server message format.
+
+```ts
+interface ServerMessage {
+  type: string;
+  collection?: string;
+  data?: any;
+}
+```
+
+---
+
+### RealTimeEvents
+
+Realtime event types.
+
+```ts
+interface RealTimeEvents {
+  "connecting": () =&gt; void;
+  "connected": () =&gt; void;
+  "disconnected": () =&gt; void;
+  "error": (error: Error) =&gt; void;
+  "auth_error": (error: Error) =&gt; void;
+  "message": (message: ServerMessage) =&gt; void;
+  [event: string]: (data: any) =&gt; void;
+}
+```
+
+---
+
+## Error Types
+
+### SnackBaseError
+
+Base error class.
+
+```ts
+class SnackBaseError extends Error {
+  readonly code: string;
+  readonly status?: number;
+  readonly details?: any;
+  readonly field?: string;
+  readonly retryable: boolean;
+}
+```
+
+---
+
+### Error Classes
+
+```ts
+class AuthenticationError extends SnackBaseError { }
+class AuthorizationError extends SnackBaseError { }
+class NotFoundError extends SnackBaseError { }
+class ConflictError extends SnackBaseError { }
+class ValidationError extends SnackBaseError {
+  readonly fields?: Record&lt;string, string[]&gt;;
+}
+class RateLimitError extends SnackBaseError {
+  readonly retryAfter?: number;
+}
+class NetworkError extends SnackBaseError { }
+class TimeoutError extends SnackBaseError { }
+class ServerError extends SnackBaseError { }
+```
+
+---
+
+## React Types
+
+### SnackBaseProviderProps
+
+React provider props.
+
+```ts
+interface SnackBaseProviderProps {
+  children: React.ReactNode;
+  baseUrl: string;
+  apiKey?: string;
+  defaultAccount?: string;
+  timeout?: number;
+  maxRetries?: number;
+  storageBackend?: StorageBackend;
+  enableLogging?: boolean;
+  logLevel?: LogLevel;
+}
+```
+
+---
+
+### UseAuthResult
+
+Return type of useAuth hook.
+
+```ts
+interface UseAuthResult extends AuthState {
+  login: (credentials: LoginCredentials) =&gt; Promise&lt;any&gt;;
+  logout: () =&gt; Promise&lt;void&gt;;
+  register: (data: RegisterData) =&gt; Promise&lt;any&gt;;
+  forgotPassword: (data: PasswordResetRequest) =&gt; Promise&lt;any&gt;;
+  resetPassword: (data: PasswordResetConfirm) =&gt; Promise&lt;any&gt;;
+  isLoading: boolean;
+}
+```
+
+---
+
+### UseRecordResult
+
+Return type of useRecord hook.
+
+```ts
+interface UseRecordResult&lt;T&gt; {
+  data: (T & BaseRecord) | null;
+  loading: boolean;
+  error: Error | null;
+  refetch: () =&gt; Promise&lt;void&gt;;
+}
+```
+
+---
+
+### UseQueryResult
+
+Return type of useQuery hook.
+
+```ts
+interface UseQueryResult&lt;T&gt; {
+  data: RecordListResponse&lt;T&gt; | null;
+  loading: boolean;
+  error: Error | null;
+  refetch: () =&gt; Promise&lt;void&gt;;
+}
+```
+
+---
+
+### UseMutationResult
+
+Return type of useMutation hook.
+
+```ts
+interface UseMutationResult&lt;T&gt; {
+  mutate: (idOrData: string | Partial&lt;T&gt;, data?: Partial&lt;T&gt;) =&gt; Promise&lt;T & BaseRecord&gt;;
+  isLoading: boolean;
+  error: Error | null;
+  reset: () =&gt; void;
+}
+```
+
+---
+
+## Utility Types
+
+### StorageBackend
+
+Storage backend options.
+
+```ts
+type StorageBackend = "localStorage" | "sessionStorage" | "memory" | "asyncStorage";
+```
+
+---
+
+### LogLevel
+
+Logging levels.
+
+```ts
+type LogLevel = "debug" | "info" | "warn" | "error";
+```
+
+---
+
+## Complete Import Example
+
+```ts
+import {
+  // Classes
+  SnackBaseClient,
+  QueryBuilder,
+
+  // Types - Config
+  SnackBaseConfig,
+  StorageBackend,
+  LogLevel,
+
+  // Types - Auth
+  User,
+  Account,
+  AuthState,
+  AuthEvents,
+  LoginCredentials,
+  RegisterData,
+
+  // Types - Collections
+  Collection,
+  Field,
+  FieldType,
+
+  // Types - Records
+  BaseRecord,
+  RecordListParams,
+  RecordListResponse,
+
+  // Types - Query
+  FilterOperator,
+  SortDirection,
+
+  // Types - Realtime
+  RealTimeState,
+  ServerMessage,
+  RealTimeEvents,
+
+  // Types - Errors
+  SnackBaseError,
+  AuthenticationError,
+  AuthorizationError,
+  NotFoundError,
+  ConflictError,
+  ValidationError,
+  RateLimitError,
+  NetworkError,
+  TimeoutError,
+  ServerError,
+} from "@snackbase/sdk";
+```
+
+## Next Steps
+
+- **[Client Reference](/sdk/js/reference/client)** - Client class reference
+- **[Services](/sdk/js/services/records)** - Service references
+- **[React Hooks](/sdk/js/react/setup)** - React integration types

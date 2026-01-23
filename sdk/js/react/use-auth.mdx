@@ -1,0 +1,435 @@
+---
+title: "useAuth Hook"
+description: "Handle authentication in React components"
+---
+
+The `useAuth` hook provides authentication state and methods for React components.
+
+## Import
+
+```ts
+import { useAuth } from "@snackbase/sdk/react";
+```
+
+## Usage
+
+```tsx
+function Profile() {
+  const { user, account, login, logout, register, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  if (!user) {
+    return <button onClick={() => login({ email, password })}>Login</button>;
+  }
+
+  return (
+    <div>
+      <h1>Welcome, {user.email}</h1>
+      <p>Account: {account?.name}</p>
+      <button onClick={logout}>Logout</button>
+    </div>
+  );
+}
+```
+
+## Return Value
+
+```ts
+interface UseAuthResult extends AuthState {
+  user: User | null;
+  account: Account | null;
+  token: string | null;
+  refreshToken: string | null;
+  isAuthenticated: boolean;
+  login: (credentials: LoginCredentials) => Promise<any>;
+  logout: () => Promise<void>;
+  register: (data: RegisterData) => Promise<any>;
+  forgotPassword: (data: PasswordResetRequest) => Promise<any>;
+  resetPassword: (data: PasswordResetConfirm) => Promise<any>;
+  isLoading: boolean;
+}
+```
+
+## Authentication State
+
+### User Information
+
+```tsx
+function UserInfo() {
+  const { user } = useAuth();
+
+  return (
+    <div>
+      <p>Email: {user?.email}</p>
+      <p>Full Name: {user?.fullName}</p>
+      <p>Verified: {user?.isEmailVerified ? "Yes" : "No"}</p>
+    </div>
+  );
+}
+```
+
+### Account Information
+
+```tsx
+function AccountInfo() {
+  const { account } = useAuth();
+
+  return (
+    <div>
+      <p>Account: {account?.name}</p>
+      <p>Slug: {account?.slug}</p>
+    </div>
+  );
+}
+```
+
+### Authentication Status
+
+```tsx
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" />;
+  }
+
+  return <>{children}</>;
+}
+```
+
+## Authentication Methods
+
+### Login
+
+```tsx
+function LoginForm() {
+  const { login } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await login({ email, password });
+      // Redirect or show success
+    } catch (err) {
+      setError("Login failed");
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input
+        type="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="Email"
+      />
+      <input
+        type="password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        placeholder="Password"
+      />
+      {error && <p className="error">{error}</p>}
+      <button type="submit">Login</button>
+    </form>
+  );
+}
+```
+
+### Register
+
+```tsx
+function RegisterForm() {
+  const { register } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [accountName, setAccountName] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await register({ email, password, accountName });
+      // Redirect or show success
+    } catch (err) {
+      // Handle error
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input
+        type="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="Email"
+      />
+      <input
+        type="password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        placeholder="Password"
+      />
+      <input
+        type="text"
+        value={accountName}
+        onChange={(e) => setAccountName(e.target.value)}
+        placeholder="Account Name"
+      />
+      <button type="submit">Register</button>
+    </form>
+  );
+}
+```
+
+### Logout
+
+```tsx
+function LogoutButton() {
+  const { logout } = useAuth();
+
+  return (
+    <button onClick={logout}>
+      Logout
+    </button>
+  );
+}
+```
+
+### Password Reset
+
+```tsx
+function ForgotPasswordForm() {
+  const { forgotPassword } = useAuth();
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await forgotPassword({ email });
+      setMessage("Check your email for reset instructions");
+    } catch (err) {
+      setMessage("Failed to send reset email");
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input
+        type="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="Email"
+      />
+      <button type="submit">Send Reset Link</button>
+      {message && <p>{message}</p>}
+    </form>
+  );
+}
+```
+
+## Loading State
+
+```tsx
+function ProtectedContent() {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <div className="spinner">Loading...</div>;
+  }
+
+  if (!user) {
+    return <div>Please log in</div>;
+  }
+
+  return <div>Welcome, {user.email}!</div>;
+}
+```
+
+## Authentication Events
+
+Listen to authentication events:
+
+```tsx
+function AuthListener() {
+  const { isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      console.log("User logged in");
+      // Initialize user-specific resources
+    } else {
+      console.log("User logged out");
+      // Cleanup user-specific resources
+    }
+  }, [isAuthenticated]);
+
+  return null;
+}
+```
+
+## OAuth Integration
+
+```tsx
+function OAuthButtons() {
+  const client = useSnackBase();
+
+  const loginWithGoogle = () => {
+    const url = client.auth.getOAuthUrl("google", "my-account");
+    window.location.href = url;
+  };
+
+  return (
+    <div>
+      <button onClick={loginWithGoogle}>
+        Continue with Google
+      </button>
+    </div>
+  );
+}
+```
+
+## Complete Example
+
+```tsx
+import { useAuth } from "@snackbase/sdk/react";
+
+function AuthenticatedApp() {
+  const { user, account, login, logout, register, isLoading, isAuthenticated } = useAuth();
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div>
+        <h1>Welcome to SnackBase</h1>
+        <LoginForm onLogin={login} />
+        <RegisterForm onRegister={register} />
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <header>
+        <h1>{account?.name}</h1>
+        <p>Signed in as {user?.email}</p>
+        <button onClick={logout}>Logout</button>
+      </header>
+      <main>
+        <Dashboard />
+      </main>
+    </div>
+  );
+}
+
+function LoginForm({ onLogin }: { onLogin: (creds: any) => Promise<void> }) {
+  const [credentials, setCredentials] = useState({ email: "", password: "" });
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await onLogin(credentials);
+    } catch (err) {
+      setError("Invalid credentials");
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input
+        type="email"
+        placeholder="Email"
+        value={credentials.email}
+        onChange={(e) => setCredentials({ ...credentials, email: e.target.value })}
+      />
+      <input
+        type="password"
+        placeholder="Password"
+        value={credentials.password}
+        onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
+      />
+      {error && <p className="error">{error}</p>}
+      <button type="submit">Login</button>
+    </form>
+  );
+}
+
+function RegisterForm({ onRegister }: { onRegister: (data: any) => Promise<void> }) {
+  const [data, setData] = useState({
+    email: "",
+    password: "",
+    accountName: "",
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await onRegister(data);
+    } catch (err) {
+      console.error("Registration failed", err);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input
+        type="email"
+        placeholder="Email"
+        value={data.email}
+        onChange={(e) => setData({ ...data, email: e.target.value })}
+      />
+      <input
+        type="password"
+        placeholder="Password"
+        value={data.password}
+        onChange={(e) => setData({ ...data, password: e.target.value })}
+      />
+      <input
+        type="text"
+        placeholder="Account Name"
+        value={data.accountName}
+        onChange={(e) => setData({ ...data, accountName: e.target.value })}
+      />
+      <button type="submit">Register</button>
+    </form>
+  );
+}
+```
+
+## TypeScript
+
+```tsx
+import type { User } from "@snackbase/sdk";
+
+function Profile() {
+  const { user } = useAuth<User>();
+
+  return (
+    <div>
+      <p>Email: {user?.email}</p>
+      <p>Name: {user?.fullName}</p>
+    </div>
+  );
+}
+```
+
+## Next Steps
+
+- **[React Setup](/sdk/js/react/setup)** - Set up React integration
+- **[useRecord Hook](/sdk/js/react/use-record)** - Fetch single records
+- **[useQuery Hook](/sdk/js/react/use-query)** - Build queries
+- **[useSubscription Hook](/sdk/js/react/use-subscription)** - Real-time subscriptions

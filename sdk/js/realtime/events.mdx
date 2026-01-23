@@ -1,0 +1,363 @@
+---
+title: "Realtime Events"
+description: "Reference for realtime events and listeners"
+---
+
+This guide provides a complete reference for all realtime events available in the SnackBase JavaScript SDK.
+
+## Event Types
+
+### Collection Events
+
+Events emitted for collection operations:
+
+| Event Pattern     | Description              | Example                 |
+| ----------------- | ------------------------ | ----------------------- |
+| `{collection}.create` | Record created    | `posts.create`          |
+| `{collection}.update` | Record updated    | `posts.update`          |
+| `{collection}.delete` | Record deleted    | `posts.delete`          |
+| `{collection}.*`      | Any operation     | `posts.*`               |
+
+### System Events
+
+Events for connection state changes:
+
+| Event        | Description               |
+| ------------ | ------------------------- |
+| `connected`  | Connection established     |
+| `connecting` | Connection in progress     |
+| `disconnected` | Connection lost       |
+| `error`      | Error occurred            |
+| `auth_error` | Authentication error      |
+| `message`    | Raw message received      |
+
+### Wildcard Events
+
+Listen to all events:
+
+| Event | Description              |
+| ----- | ------------------------ |
+| `*`   | All events on all collections |
+
+## Listening to Events
+
+### Basic Event Listener
+
+```ts
+client.realtime.on("posts.create", (data) => {
+  console.log("New post:", data);
+});
+```
+
+### Wildcard Listeners
+
+```ts
+// All events on a collection
+client.realtime.on("posts.*", (data) => {
+  console.log("Posts event:", data);
+});
+
+// All events on all collections
+client.realtime.on("*", (data) => {
+  console.log("Any event:", data);
+});
+```
+
+### Removing Listeners
+
+```ts
+// The on() method returns an unsubscribe function
+const unsubscribe = client.realtime.on("posts.create", (data) => {
+  console.log("New post:", data);
+});
+
+// Remove the listener
+unsubscribe();
+```
+
+## Event Data Structure
+
+### Create Event
+
+```ts
+client.realtime.on("posts.create", (data) => {
+  // data is the complete created record
+  console.log(data.id);
+  console.log(data.title);
+  console.log(data.content);
+  console.log(data.authorId);
+  console.log(data.createdAt);
+  console.log(data.updatedAt);
+});
+```
+
+### Update Event
+
+```ts
+client.realtime.on("posts.update", (data) => {
+  // data is the complete updated record
+  console.log(data.id);
+  console.log(data.title); // Updated value
+  console.log(data.updatedAt); // New timestamp
+});
+```
+
+### Delete Event
+
+```ts
+client.realtime.on("posts.delete", (data) => {
+  // data contains the deleted record's ID and basic info
+  console.log(data.id); // ID of deleted record
+});
+```
+
+## Connection Event Data
+
+### Connected Event
+
+```ts
+client.realtime.on("connected", () => {
+  console.log("Connection established");
+  // No data payload
+});
+```
+
+### Error Event
+
+```ts
+client.realtime.on("error", (error: Error) => {
+  console.error("Error:", error.message);
+  console.error("Error details:", error);
+});
+```
+
+### Auth Error Event
+
+```ts
+client.realtime.on("auth_error", (error: Error) => {
+  console.error("Authentication error:", error.message);
+  // Redirect to login or refresh token
+});
+```
+
+## Event Handling Patterns
+
+### Type-Safe Event Handlers
+
+```ts
+interface Post {
+  id: string;
+  title: string;
+  content: string;
+  authorId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+client.realtime.on("posts.create", (data: Post) => {
+  console.log(data.title); // TypeScript knows this is a Post
+});
+```
+
+### Filtering Events
+
+```ts
+// Only handle posts by specific author
+client.realtime.on("posts.create", (data: Post) => {
+  if (data.authorId === currentUserId) {
+    console.log("New post by current user:", data.title);
+  }
+});
+```
+
+### Debouncing Events
+
+```ts
+import { debounce } from "lodash";
+
+// Debounce rapid updates
+const debouncedHandler = debounce((data: Post) => {
+  console.log("Post updated (debounced):", data.title);
+}, 300);
+
+client.realtime.on("posts.update", debouncedHandler);
+```
+
+### Throttling Events
+
+```ts
+import { throttle } from "lodash";
+
+// Throttle rapid events
+const throttledHandler = throttle((data: Post) => {
+  console.log("Post updated (throttled):", data.title);
+}, 1000);
+
+client.realtime.on("posts.update", throttledHandler);
+```
+
+## Complete Example
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+});
+
+async function setupRealtime() {
+  // Connect
+  await client.realtime.connect();
+
+  // Subscribe to collections
+  await client.realtime.subscribe("posts", ["create", "update", "delete"]);
+  await client.realtime.subscribe("comments", ["create"]);
+  await client.realtime.subscribe("likes", ["create", "delete"]);
+
+  // Collection events
+  const unsubscribePosts = client.realtime.on("posts.create", (post) => {
+    console.log("New post:", post.title);
+    // Add to UI
+  });
+
+  client.realtime.on("posts.update", (post) => {
+    console.log("Updated post:", post.title);
+    // Update in UI
+  });
+
+  client.realtime.on("posts.delete", (post) => {
+    console.log("Deleted post:", post.id);
+    // Remove from UI
+  });
+
+  // Wildcard listener
+  const unsubscribeAll = client.realtime.on("*", (data) => {
+    console.log("Some event happened:", data);
+  });
+
+  // Connection events
+  client.realtime.on("connected", () => {
+    console.log("✅ Connected");
+  });
+
+  client.realtime.on("connecting", () => {
+    console.log("🔄 Connecting...");
+  });
+
+  client.realtime.on("disconnected", () => {
+    console.log("❌ Disconnected - will reconnect");
+  });
+
+  client.realtime.on("error", (error) => {
+    console.error("⚠️ Error:", error.message);
+  });
+
+  client.realtime.on("auth_error", (error) => {
+    console.error("🔐 Auth error:", error.message);
+    // Redirect to login
+  });
+
+  // Cleanup function
+  return () => {
+    unsubscribePosts();
+    unsubscribeAll();
+    client.realtime.disconnect();
+  };
+}
+```
+
+## React Hook
+
+Create a custom hook for realtime events:
+
+```tsx
+import { useEffect } from "react";
+import { useSnackBase } from "@snackbase/sdk/react";
+
+function useRealtimeCollection<T>(
+  collection: string,
+  onEvent: (data: T, event: string) => void
+) {
+  const client = useSnackBase();
+
+  useEffect(() => {
+    const unsubscribes: (() => void)[] = [];
+
+    async function setup() {
+      await client.realtime.connect();
+      await client.realtime.subscribe(collection);
+
+      const operations = ["create", "update", "delete"] as const;
+
+      operations.forEach((op) => {
+        const unsubscribe = client.realtime.on(`${collection}.${op}`, (data) => {
+          onEvent(data as T, op);
+        });
+        unsubscribes.push(unsubscribe);
+      });
+    }
+
+    setup();
+
+    return () => {
+      unsubscribes.forEach((fn) => fn());
+      client.realtime.disconnect();
+    };
+  }, [client, collection, onEvent]);
+}
+
+// Usage
+function PostList() {
+  const [posts, setPosts] = useState<Post[]>([]);
+
+  useRealtimeCollection<Post>("posts", (data, event) => {
+    switch (event) {
+      case "create":
+        setPosts((prev) => [...prev, data]);
+        break;
+      case "update":
+        setPosts((prev) => prev.map((p) => (p.id === data.id ? data : p)));
+        break;
+      case "delete":
+        setPosts((prev) => prev.filter((p) => p.id !== data.id));
+        break;
+    }
+  });
+
+  return (
+    <ul>
+      {posts.map((post) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## Event Reference
+
+### Method: `on(event, handler)`
+
+Subscribe to an event.
+
+**Parameters:**
+- `event` (string) - Event name
+- `handler` (function) - Event handler function
+
+**Returns:** `() => void` - Unsubscribe function
+
+### Method: `off(event, handler)`
+
+Unsubscribe from an event.
+
+**Parameters:**
+- `event` (string) - Event name
+- `handler` (function) - Event handler to remove
+
+**Returns:** `void`
+
+## Next Steps
+
+- **[Realtime Overview](/sdk/js/realtime/overview)** - Getting started with realtime
+- **[WebSocket](/sdk/js/realtime/websocket)** - WebSocket-specific features
+- **[SSE](/sdk/js/realtime/sse)** - Server-Sent Events

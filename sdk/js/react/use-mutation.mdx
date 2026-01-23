@@ -1,0 +1,476 @@
+---
+title: "useMutation Hook"
+description: "Perform mutations on records in React components"
+---
+
+The `useMutation` hook provides a simple way to perform create, update, and delete operations on records in React components.
+
+## Import
+
+```ts
+import { useMutation } from "@snackbase/sdk/react";
+```
+
+## Usage
+
+```tsx
+function CreatePostForm() {
+  const { mutate: createPost, isLoading, error } = useMutation("posts");
+
+  const handleSubmit = async (data: PostCreate) => {
+    const result = await createPost(data);
+    console.log("Created:", result);
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input name="title" placeholder="Title" />
+      <textarea name="content" placeholder="Content" />
+      <button type="submit" disabled={isLoading}>
+        {isLoading ? "Creating..." : "Create Post"}
+      </button>
+      {error && <p className="error">{error.message}</p>}
+    </form>
+  );
+}
+```
+
+## Parameters
+
+```ts
+useMutation(collection: string)
+```
+
+| Parameter    | Type     | Required | Description      |
+| ------------ | -------- | -------- | ---------------- |
+| `collection` | `string` | Yes      | Collection name  |
+
+## Return Value
+
+```ts
+interface UseMutationResult {
+  mutate: (
+    idOrData: string | Partial<any>,
+    data?: Partial<any>
+  ) => Promise<any & BaseRecord>;
+  isLoading: boolean;
+  error: Error | null;
+  reset: () => void;
+}
+```
+
+| Property | Type                                      | Description                           |
+| -------- | ----------------------------------------- | ------------------------------------- |
+| `mutate` | `(idOrData, data?) => Promise<T>`         | Function to perform mutation          |
+| `isLoading` | `boolean`                             | Whether mutation is in progress        |
+| `error`  | `Error \| null`                           | Any error that occurred               |
+| `reset`  | `() => void`                              | Reset error state                     |
+
+## Operations
+
+### Create
+
+```tsx
+function CreatePostForm() {
+  const { mutate: createPost, isLoading, error } = useMutation("posts");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const title = (form.elements.namedItem("title") as HTMLInputElement).value;
+    const content = (form.elements.namedItem("content") as HTMLTextAreaElement).value;
+
+    try {
+      const result = await createPost({ title, content });
+      console.log("Created post:", result);
+      // Redirect or show success
+    } catch (err) {
+      console.error("Failed to create post:", err);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input name="title" placeholder="Title" required />
+      <textarea name="content" placeholder="Content" required />
+      <button type="submit" disabled={isLoading}>
+        {isLoading ? "Creating..." : "Create Post"}
+      </button>
+      {error && <p className="error">{error.message}</p>}
+    </form>
+  );
+}
+```
+
+### Update (Full)
+
+```tsx
+function EditPostForm({ post }: { post: Post }) {
+  const { mutate: updatePost, isLoading, error, reset } = useMutation("posts");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const title = (form.elements.namedItem("title") as HTMLInputElement).value;
+    const content = (form.elements.namedItem("content") as HTMLTextAreaElement).value;
+
+    try {
+      const result = await updatePost(post.id, { title, content });
+      console.log("Updated post:", result);
+    } catch (err) {
+      console.error("Failed to update post:", err);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input name="title" defaultValue={post.title} required />
+      <textarea name="content" defaultValue={post.content} required />
+      <button type="submit" disabled={isLoading}>
+        {isLoading ? "Updating..." : "Update Post"}
+      </button>
+      {error && (
+        <p className="error">
+          {error.message}
+          <button onClick={reset} type="button">Dismiss</button>
+        </p>
+      )}
+    </form>
+  );
+}
+```
+
+### Patch (Partial Update)
+
+For partial updates, use the same `mutate` function:
+
+```tsx
+function IncrementViews({ postId }: { postId: string }) {
+  const { mutate: patchPost } = useMutation("posts");
+
+  const handleClick = async () => {
+    // This performs a partial update (PATCH)
+    await patchPost(postId, { views: 1 });
+  };
+
+  return <button onClick={handleClick}>Like Post</button>;
+}
+```
+
+<Note>
+  The SDK automatically uses PATCH when only some fields are provided.
+</Note>
+
+### Delete
+
+```tsx
+function DeletePostButton({ postId }: { postId: string }) {
+  const { mutate: deletePost, isLoading, error } = useMutation("posts");
+
+  const handleDelete = async () => {
+    if (!confirm("Are you sure?")) return;
+
+    try {
+      await deletePost(postId);
+      console.log("Post deleted");
+      // Navigate away or show success
+    } catch (err) {
+      console.error("Failed to delete post:", err);
+    }
+  };
+
+  return (
+    <button onClick={handleDelete} disabled={isLoading}>
+      {isLoading ? "Deleting..." : "Delete Post"}
+    </button>
+  );
+}
+```
+
+## Loading States
+
+```tsx
+function CreatePostForm() {
+  const { mutate: createPost, isLoading } = useMutation("posts");
+
+  const handleSubmit = async (data: PostCreate) => {
+    await createPost(data);
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input name="title" disabled={isLoading} />
+      <textarea name="content" disabled={isLoading} />
+      <button type="submit" disabled={isLoading}>
+        {isLoading ? (
+          <span className="flex items-center gap-2">
+            <div className="animate-spin w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
+            Creating...
+          </span>
+        ) : (
+          "Create Post"
+        )}
+      </button>
+    </form>
+  );
+}
+```
+
+## Error Handling
+
+```tsx
+function CreatePostForm() {
+  const { mutate: createPost, error, reset } = useMutation("posts");
+
+  const handleSubmit = async (data: PostCreate) => {
+    reset(); // Clear previous errors
+    try {
+      await createPost(data);
+    } catch (err) {
+      // Error is set automatically
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      {error && (
+        <div className="p-4 bg-red-50 text-red-800 rounded mb-4">
+          <p className="font-semibold">Error</p>
+          <p>{error.message}</p>
+          <button
+            type="button"
+            onClick={reset}
+            className="mt-2 text-red-600 underline"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+      {/* Form fields */}
+    </form>
+  );
+}
+```
+
+## Optimistic Updates
+
+```tsx
+function LikeButton({ post }: { post: Post }) {
+  const { mutate: patchPost } = useMutation("posts");
+  const [localLikes, setLocalLikes] = useState(post.likes);
+
+  const handleLike = async () => {
+    // Optimistic update
+    const newLikes = localLikes + 1;
+    setLocalLikes(newLikes);
+
+    try {
+      await patchPost(post.id, { likes: newLikes });
+    } catch {
+      // Revert on error
+      setLocalLikes(localLikes);
+    }
+  };
+
+  return (
+    <button onClick={handleLike}>
+      ❤️ {localLikes}
+    </button>
+  );
+}
+```
+
+## Combined with Queries
+
+```tsx
+function PostList() {
+  const { data, refetch: refetchList } = useQuery("posts", (q) => q.page(1, 20));
+  const { mutate: deletePost, isLoading } = useMutation("posts");
+
+  const handleDelete = async (postId: string) => {
+    await deletePost(postId);
+    refetchList(); // Refresh the list after deletion
+  };
+
+  return (
+    <ul>
+      {data?.items.map((post) => (
+        <li key={post.id}>
+          {post.title}
+          <button
+            onClick={() => handleDelete(post.id)}
+            disabled={isLoading}
+          >
+            Delete
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## TypeScript
+
+```tsx
+import type { Post, PostCreate } from "@snackbase/sdk";
+
+function CreatePostForm() {
+  const { mutate: createPost } = useMutation<Post>("posts");
+
+  const handleSubmit = async (data: PostCreate) => {
+    const result = await createPost(data);
+    // result is fully typed as Post & BaseRecord
+    console.log(result.id, result.title);
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      {/* Form fields */}
+    </form>
+  );
+}
+```
+
+## Complete Example
+
+```tsx
+import { useMutation } from "@snackbase/sdk/react";
+import type { Post } from "@snackbase/sdk";
+import { useState } from "react";
+
+function PostEditor({ post, onSave, onCancel }: {
+  post?: Post;
+  onSave: (post: Post) => void;
+  onCancel: () => void;
+}) {
+  const { mutate: savePost, isLoading, error, reset } = useMutation<Post>("posts");
+  const [title, setTitle] = useState(post?.title || "");
+  const [content, setContent] = useState(post?.content || "");
+  const [status, setStatus] = useState(post?.status || "draft");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    reset();
+
+    try {
+      let result: Post;
+
+      if (post) {
+        // Update existing post
+        result = await savePost(post.id, { title, content, status });
+      } else {
+        // Create new post
+        result = await savePost({ title, content, status });
+      }
+
+      onSave(result);
+    } catch {
+      // Error is set automatically
+    }
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto p-6">
+      <h1 className="text-2xl font-bold mb-6">
+        {post ? "Edit Post" : "New Post"}
+      </h1>
+
+      {error && (
+        <div className="mb-4 p-4 bg-red-50 text-red-800 rounded">
+          <p className="font-semibold">Error</p>
+          <p>{error.message}</p>
+          <button
+            type="button"
+            onClick={reset}
+            className="mt-2 text-red-600 underline"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label htmlFor="title" className="block font-medium mb-1">
+            Title
+          </label>
+          <input
+            id="title"
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            disabled={isLoading}
+            className="w-full px-3 py-2 border rounded"
+            required
+          />
+        </div>
+
+        <div>
+          <label htmlFor="content" className="block font-medium mb-1">
+            Content
+          </label>
+          <textarea
+            id="content"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            disabled={isLoading}
+            className="w-full px-3 py-2 border rounded"
+            rows={10}
+            required
+          />
+        </div>
+
+        <div>
+          <label htmlFor="status" className="block font-medium mb-1">
+            Status
+          </label>
+          <select
+            id="status"
+            value={status}
+            onChange={(e) => setStatus(e.target.value as Post["status"])}
+            disabled={isLoading}
+            className="px-3 py-2 border rounded"
+          >
+            <option value="draft">Draft</option>
+            <option value="published">Published</option>
+            <option value="archived">Archived</option>
+          </select>
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            disabled={isLoading || !title || !content}
+            className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
+          >
+            {isLoading ? (
+              <span className="flex items-center gap-2">
+                <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                Saving...
+              </span>
+            ) : (
+              "Save Post"
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isLoading}
+            className="px-4 py-2 border rounded"
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+```
+
+## Next Steps
+
+- **[React Setup](/sdk/js/react/setup)** - Set up React integration
+- **[useAuth Hook](/sdk/js/react/use-auth)** - Authentication
+- **[useQuery Hook](/sdk/js/react/use-query)** - Query building
+- **[useSubscription Hook](/sdk/js/react/use-subscription)** - Real-time subscriptions

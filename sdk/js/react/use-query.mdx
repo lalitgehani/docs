@@ -1,0 +1,458 @@
+---
+title: "useQuery Hook"
+description: "Build queries with the query builder in React"
+---
+
+The `useQuery` hook provides a React interface for the Query Builder, allowing you to construct complex queries with filtering, sorting, and pagination.
+
+## Import
+
+```ts
+import { useQuery } from "@snackbase/sdk/react";
+```
+
+## Usage
+
+```tsx
+function PostList() {
+  const { data, loading, error, refetch } = useQuery("posts", (query) =>
+    query
+      .filter("status", "=", "published")
+      .sort("createdAt", "desc")
+      .page(1, 20)
+  );
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+
+  return (
+    <ul>
+      {data?.items.map((post) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## Parameters
+
+```ts
+useQuery(
+  collection: string,
+  builder: (query: QueryBuilder) => QueryBuilder,
+  options?: UseQueryOptions
+)
+```
+
+| Parameter  | Type                    | Required | Description                  |
+| ---------- | ----------------------- | -------- | ---------------------------- |
+| `collection` | `string`               | Yes      | Collection name              |
+| `builder`   | `(query) => query`      | Yes      | Query builder function       |
+| `options`   | `UseQueryOptions`       | No       | Additional options           |
+
+## Builder Function
+
+The builder function receives a `QueryBuilder` and returns it after chaining methods:
+
+```tsx
+const { data } = useQuery("posts", (query) =>
+  query
+    .select("id", "title", "author")
+    .filter("status", "=", "published")
+    .sort("createdAt", "desc")
+    .page(1, 20)
+);
+```
+
+## Return Value
+
+```ts
+interface UseQueryResult {
+  data: RecordListResponse | null;
+  loading: boolean;
+  error: Error | null;
+  refetch: () => Promise<void>;
+}
+```
+
+| Property | Type                        | Description                    |
+| -------- | --------------------------- | ------------------------------ |
+| `data`   | `RecordListResponse \| null` | Query results or null       |
+| `loading`| `boolean`                   | Whether data is loading        |
+| `error`  | `Error \| null`             | Any error that occurred        |
+| `refetch`| `() => Promise<void>`       | Function to refetch the query  |
+
+## Filtering
+
+```tsx
+function PublishedPosts() {
+  const { data } = useQuery("posts", (query) =>
+    query.filter("status", "=", "published")
+  );
+
+  return (
+    <ul>
+      {data?.items.map((post) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+### Multiple Filters
+
+```tsx
+function RecentPopularPosts() {
+  const { data } = useQuery("posts", (query) =>
+    query
+      .filter("status", "=", "published")
+      .filter("createdAt", ">", "2024-01-01")
+      .filter("views", ">=", 100)
+  );
+
+  return (
+    <ul>
+      {data?.items.map((post) => (
+        <li key={post.id}>{post.title} ({post.views} views)</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## Sorting
+
+```tsx
+function PopularPosts() {
+  const { data } = useQuery("posts", (query) =>
+    query.sort("views", "desc")
+  );
+
+  return (
+    <ul>
+      {data?.items.map((post) => (
+        <li key={post.id}>{post.title} - {post.views} views</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+### Multiple Sort
+
+```tsx
+function SortedPosts() {
+  const { data } = useQuery("posts", (query) =>
+    query
+      .sort("status", "asc")
+      .sort("createdAt", "desc")
+  );
+
+  return (
+    <ul>
+      {data?.items.map((post) => (
+        <li key={post.id}>{post.title} - {post.status}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## Pagination
+
+```tsx
+function PaginatedPostList({ page }: { page: number }) {
+  const { data } = useQuery("posts", (query) =>
+    query.page(page, 20)
+  );
+
+  const totalPages = data ? Math.ceil(data.total / 20) : 0;
+
+  return (
+    <div>
+      <ul>
+        {data?.items.map((post) => (
+          <li key={post.id}>{post.title}</li>
+        ))}
+      </ul>
+      <p>Page {page} of {totalPages}</p>
+    </div>
+  );
+}
+```
+
+## Field Selection
+
+```tsx
+function PostTitles() {
+  const { data } = useQuery("posts", (query) =>
+    query
+      .select("id", "title", "slug")
+  );
+
+  return (
+    <ul>
+      {data?.items.map((post) => (
+        <li key={post.id}>
+          <a href={`/posts/${post.slug}`}>{post.title}</a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## Expand Relations
+
+```tsx
+function PostsWithAuthors() {
+  const { data } = useQuery("posts", (query) =>
+    query
+      .expand("author")
+  );
+
+  return (
+    <ul>
+      {data?.items.map((post) => (
+        <li key={post.id}>
+          {post.title} by {post.author?.name}
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## Complex Queries
+
+```tsx
+function ComplexSearch() {
+  const { data, loading } = useQuery("posts", (query) =>
+    query
+      .select("id", "title", "author.name", "createdAt")
+      .expand("author")
+      .filter("status", "=", "published")
+      .filter("createdAt", ">=", "2024-01-01")
+      .sort("views", "desc")
+      .sort("createdAt", "desc")
+      .page(1, 20)
+  );
+
+  if (loading) return <div>Loading...</div>;
+
+  return (
+    <div>
+      <p>Found {data?.total} posts</p>
+      <ul>
+        {data?.items.map((post) => (
+          <li key={post.id}>
+            <h3>{post.title}</h3>
+            <p>By {post.author?.name}</p>
+            <p>{post.views} views</p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+## Loading State
+
+```tsx
+function PostList() {
+  const { data, loading } = useQuery("posts", (query) =>
+    query.page(1, 20)
+  );
+
+  if (loading) {
+    return (
+      <div className="flex justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
+      </div>
+    );
+  }
+
+  return (
+    <ul>
+      {data?.items.map((post) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## Error Handling
+
+```tsx
+function PostList() {
+  const { data, loading, error } = useQuery("posts", (query) =>
+    query.page(1, 20)
+  );
+
+  if (loading) return <div>Loading...</div>;
+
+  if (error) {
+    return (
+      <div className="p-4 bg-red-50 text-red-800 rounded">
+        <h2>Error Loading Posts</h2>
+        <p>{error.message}</p>
+      </div>
+    );
+  }
+
+  return (
+    <ul>
+      {data?.items.map((post) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## Refetching
+
+```tsx
+function RefreshablePostList() {
+  const { data, loading, refetch } = useQuery("posts", (query) =>
+    query.page(1, 20)
+  );
+
+  return (
+    <div>
+      <ul>
+        {data?.items.map((post) => (
+          <li key={post.id}>{post.title}</li>
+        ))}
+      </ul>
+      <button onClick={refetch} disabled={loading}>
+        Refresh
+      </button>
+    </div>
+  );
+}
+```
+
+## TypeScript
+
+```tsx
+import type { Post } from "@snackbase/sdk";
+
+function PostList() {
+  const { data } = useQuery<Post>("posts", (query) =>
+    query.filter("status", "=", "published")
+  );
+
+  return (
+    <ul>
+      {data?.items.map((post) => (
+        <li key={post.id}>
+          {post.title} - {post.status} {/* Fully typed */}
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## Complete Example
+
+```tsx
+import { useQuery } from "@snackbase/sdk/react";
+import type { Post } from "@snackbase/sdk";
+import { useState } from "react";
+
+function PostList() {
+  const [page, setPage] = useState(1);
+  const perPage = 20;
+
+  const { data, loading, error } = useQuery<Post>("posts", (query) =>
+    query
+      .select("id", "title", "slug", "author", "views", "createdAt")
+      .expand("author")
+      .filter("status", "=", "published")
+      .sort("createdAt", "desc")
+      .page(page, perPage)
+  );
+
+  const totalPages = data ? Math.ceil(data.total / perPage) : 0;
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center p-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 bg-red-50 border border-red-200 rounded">
+        <h2 className="text-lg font-semibold text-red-800">Error Loading Posts</h2>
+        <p className="text-red-600 mt-2">{error.message}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto p-6">
+      <header className="mb-6">
+        <h1 className="text-2xl font-bold">Published Posts</h1>
+        <p className="text-gray-600">
+          Showing {data?.items.length} of {data?.total} posts
+        </p>
+      </header>
+
+      <ul className="space-y-4">
+        {data?.items.map((post) => (
+          <li key={post.id} className="p-4 border rounded hover:shadow">
+            <h2 className="text-xl font-semibold">
+              <a href={`/posts/${post.slug}`}>{post.title}</a>
+            </h2>
+            <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
+              {post.author && (
+                <span>By {post.author.name}</span>
+              )}
+              <span>{post.views} views</span>
+              <time>{new Date(post.createdAt).toLocaleDateString()}</time>
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      {totalPages > 1 && (
+        <nav className="mt-8 flex justify-center gap-2">
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="px-4 py-2 border rounded disabled:opacity-50"
+          >
+            Previous
+          </button>
+          <span className="px-4 py-2">
+            Page {page} of {totalPages}
+          </span>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+            className="px-4 py-2 border rounded disabled:opacity-50"
+          >
+            Next
+          </button>
+        </nav>
+      )}
+    </div>
+  );
+}
+```
+
+## Next Steps
+
+- **[React Setup](/sdk/js/react/setup)** - Set up React integration
+- **[useAuth Hook](/sdk/js/react/use-auth)** - Authentication
+- **[useRecord Hook](/sdk/js/react/use-record)** - Single record fetching
+- **[Query Builder](/sdk/js/query/overview)** - Query builder reference

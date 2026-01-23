@@ -85,6 +85,82 @@
         ]
       },
       {
+        "tab": "JavaScript SDK",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "sdk/js/installation",
+              "sdk/js/quickstart",
+              "sdk/js/configuration"
+            ]
+          },
+          {
+            "group": "Authentication",
+            "pages": [
+              "sdk/js/auth/overview",
+              "sdk/js/auth/email-password",
+              "sdk/js/auth/oauth",
+              "sdk/js/auth/api-keys"
+            ]
+          },
+          {
+            "group": "Core Services",
+            "pages": [
+              "sdk/js/services/records",
+              "sdk/js/services/collections",
+              "sdk/js/services/users",
+              "sdk/js/services/accounts",
+              "sdk/js/services/roles",
+              "sdk/js/services/groups"
+            ]
+          },
+          {
+            "group": "Query Builder",
+            "pages": [
+              "sdk/js/query/overview",
+              "sdk/js/query/filtering",
+              "sdk/js/query/sorting",
+              "sdk/js/query/pagination"
+            ]
+          },
+          {
+            "group": "Realtime",
+            "pages": [
+              "sdk/js/realtime/overview",
+              "sdk/js/realtime/websocket",
+              "sdk/js/realtime/sse",
+              "sdk/js/realtime/events"
+            ]
+          },
+          {
+            "group": "React Integration",
+            "pages": [
+              "sdk/js/react/setup",
+              "sdk/js/react/use-auth",
+              "sdk/js/react/use-record",
+              "sdk/js/react/use-query",
+              "sdk/js/react/use-mutation",
+              "sdk/js/react/use-subscription"
+            ]
+          },
+          {
+            "group": "Error Handling",
+            "pages": [
+              "sdk/js/errors/overview",
+              "sdk/js/errors/types"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "sdk/js/reference/client",
+              "sdk/js/reference/types"
+            ]
+          }
+        ]
+      },
+      {
         "tab": "API Reference",
         "groups": [
           {

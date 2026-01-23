@@ -1,0 +1,426 @@
+---
+title: "Error Types Reference"
+description: "Complete reference for all SDK error types"
+---
+
+This is a complete reference for all error types in the SnackBase JavaScript SDK.
+
+## Base Error: SnackBaseError
+
+All SDK errors extend from the base `SnackBaseError` class.
+
+### Properties
+
+```ts
+class SnackBaseError extends Error {
+  public readonly code: string;
+  public readonly status?: number;
+  public readonly details?: any;
+  public readonly field?: string;
+  public readonly retryable: boolean;
+
+  constructor(
+    message: string,
+    code: string,
+    status?: number,
+    details?: any,
+    retryable: boolean = false,
+    field?: string
+  )
+}
+```
+
+### Properties Reference
+
+| Property   | Type              | Description                    |
+| ---------- | ----------------- | ------------------------------ |
+| `message`  | `string`          | Human-readable error message   |
+| `name`     | `string`          | Error class name               |
+| `code`     | `string`          | Error code (e.g., "NETWORK_ERROR") |
+| `status`   | `number \| undefined` | HTTP status code          |
+| `details`  | `any \| undefined` | Additional error details       |
+| `field`    | `string \| undefined` | Field name (validation)    |
+| `retryable`| `boolean`         | Whether request can be retried |
+
+## Error Classes
+
+### AuthenticationError
+
+**Status Code:** 401
+**Code:** `AUTHENTICATION_ERROR`
+**Retryable:** No
+
+Thrown when authentication fails or tokens are invalid/expired.
+
+```ts
+class AuthenticationError extends SnackBaseError {
+  constructor(message: string = "Authentication failed", details?: any)
+}
+```
+
+**Common Causes:**
+- Invalid credentials
+- Expired access token
+- Missing authorization header
+- Invalid API key
+
+**Example:**
+```ts
+try {
+  await client.auth.loginWithPassword({
+    email: "user@example.com",
+    password: "wrong-password",
+  });
+} catch (error) {
+  if (error instanceof AuthenticationError) {
+    console.error("Authentication failed");
+  }
+}
+```
+
+---
+
+### AuthorizationError
+
+**Status Code:** 403
+**Code:** `AUTHORIZATION_ERROR`
+**Retryable:** No
+
+Thrown when the authenticated user lacks permission for an action.
+
+```ts
+class AuthorizationError extends SnackBaseError {
+  constructor(message: string = "Not authorized", details?: any)
+}
+```
+
+**Common Causes:**
+- Insufficient permissions
+- Role-based access control violation
+- Collection rule violation
+
+**Example:**
+```ts
+try {
+  await client.records.delete("posts", "post-id");
+} catch (error) {
+  if (error instanceof AuthorizationError) {
+    console.error("Permission denied");
+  }
+}
+```
+
+---
+
+### NotFoundError
+
+**Status Code:** 404
+**Code:** `NOT_FOUND_ERROR`
+**Retryable:** No
+
+Thrown when a requested resource is not found.
+
+```ts
+class NotFoundError extends SnackBaseError {
+  constructor(message: string = "Resource not found", details?: any)
+}
+```
+
+**Common Causes:**
+- Invalid record ID
+- Non-existent collection
+- Non-existent user/account
+
+**Example:**
+```ts
+try {
+  const post = await client.records.get("posts", "invalid-id");
+} catch (error) {
+  if (error instanceof NotFoundError) {
+    console.error("Post not found");
+  }
+}
+```
+
+---
+
+### ConflictError
+
+**Status Code:** 409
+**Code:** `CONFLICT_ERROR`
+**Retryable:** No
+
+Thrown when a resource conflict occurs.
+
+```ts
+class ConflictError extends SnackBaseError {
+  constructor(message: string = "Resource conflict", details?: any)
+}
+```
+
+**Common Causes:**
+- Duplicate unique field value
+- Concurrent modification conflict
+- Resource already exists
+
+**Example:**
+```ts
+try {
+  await client.users.create({
+    email: "existing@example.com",
+    password: "password",
+  });
+} catch (error) {
+  if (error instanceof ConflictError) {
+    console.error("User already exists");
+  }
+}
+```
+
+---
+
+### ValidationError
+
+**Status Code:** 422
+**Code:** `VALIDATION_ERROR`
+**Retryable:** No
+
+Thrown when request validation fails.
+
+```ts
+class ValidationError extends SnackBaseError {
+  public readonly fields?: Record<string, string[]>;
+
+  constructor(message: string = "Validation failed", details?: any)
+}
+```
+
+**Common Causes:**
+- Missing required fields
+- Invalid field values
+- Type mismatch
+- Constraint violation
+
+**Example:**
+```ts
+try {
+  await client.records.create("posts", {
+    title: "",  // Required field
+  });
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.error("Validation errors:", error.fields);
+    // { title: ["This field is required"] }
+  }
+}
+```
+
+---
+
+### RateLimitError
+
+**Status Code:** 429
+**Code:** `RATE_LIMIT_ERROR`
+**Retryable:** Yes
+
+Thrown when rate limit is exceeded.
+
+```ts
+class RateLimitError extends SnackBaseError {
+  public readonly retryAfter?: number;
+
+  constructor(
+    message: string = "Rate limit exceeded",
+    details?: any,
+    retryAfter?: number
+  )
+}
+```
+
+**Properties:**
+- `retryAfter`: Seconds to wait before retrying
+
+**Example:**
+```ts
+try {
+  await client.records.list("posts");
+} catch (error) {
+  if (error instanceof RateLimitError) {
+    console.error("Rate limited. Wait", error.retryAfter, "seconds");
+  }
+}
+```
+
+---
+
+### NetworkError
+
+**Status Code:** N/A
+**Code:** `NETWORK_ERROR`
+**Retryable:** Yes
+
+Thrown when network request fails.
+
+```ts
+class NetworkError extends SnackBaseError {
+  constructor(message: string = "Network error", details?: any)
+}
+```
+
+**Common Causes:**
+- No internet connection
+- DNS resolution failure
+- Connection timeout
+- CORS error
+
+**Example:**
+```ts
+try {
+  await client.records.list("posts");
+} catch (error) {
+  if (error instanceof NetworkError) {
+    console.error("Network error - check connection");
+  }
+}
+```
+
+---
+
+### TimeoutError
+
+**Status Code:** N/A
+**Code:** `TIMEOUT_ERROR`
+**Retryable:** Yes
+
+Thrown when a request times out.
+
+```ts
+class TimeoutError extends SnackBaseError {
+  constructor(message: string = "Request timed out", details?: any)
+}
+```
+
+**Common Causes:**
+- Server not responding
+- Slow network
+- Large request payload
+
+**Example:**
+```ts
+try {
+  await client.records.list("posts");
+} catch (error) {
+  if (error instanceof TimeoutError) {
+    console.error("Request timed out");
+  }
+}
+```
+
+---
+
+### ServerError
+
+**Status Code:** 500+
+**Code:** `SERVER_ERROR`
+**Retryable:** Yes
+
+Thrown when a server error occurs.
+
+```ts
+class ServerError extends SnackBaseError {
+  constructor(
+    message: string = "Internal server error",
+    status: number = 500,
+    details?: any
+  )
+}
+```
+
+**Common Causes:**
+- Server-side exception
+- Database error
+- Configuration error
+
+**Example:**
+```ts
+try {
+  await client.records.list("posts");
+} catch (error) {
+  if (error instanceof ServerError) {
+    console.error("Server error:", error.status);
+  }
+}
+```
+
+## Error Codes Reference
+
+| Code                    | Status | Retryable | Error Class           |
+| ----------------------- | ------ | --------- | --------------------- |
+| `AUTHENTICATION_ERROR`  | 401    | No        | `AuthenticationError` |
+| `AUTHORIZATION_ERROR`   | 403    | No        | `AuthorizationError`  |
+| `NOT_FOUND_ERROR`       | 404    | No        | `NotFoundError`       |
+| `CONFLICT_ERROR`        | 409    | No        | `ConflictError`       |
+| `VALIDATION_ERROR`      | 422    | No        | `ValidationError`     |
+| `RATE_LIMIT_ERROR`      | 429    | Yes       | `RateLimitError`      |
+| `NETWORK_ERROR`         | N/A    | Yes       | `NetworkError`        |
+| `TIMEOUT_ERROR`         | N/A    | Yes       | `TimeoutError`        |
+| `SERVER_ERROR`          | 500+   | Yes       | `ServerError`         |
+
+## Type Guards
+
+Create type guards for specific errors:
+
+```ts
+function isAuthError(error: unknown): error is AuthenticationError {
+  return error instanceof AuthenticationError;
+}
+
+function isValidationError(error: unknown): error is ValidationError {
+  return error instanceof ValidationError;
+}
+
+function isRetryableError(error: unknown): error is SnackBaseError & { retryable: true } {
+  return error instanceof SnackBaseError && error.retryable;
+}
+
+// Usage
+try {
+  await client.records.create("posts", data);
+} catch (error) {
+  if (isAuthError(error)) {
+    // Handle auth error
+  } else if (isValidationError(error)) {
+    // Handle validation error
+  } else if (isRetryableError(error)) {
+    // Retry request
+  }
+}
+```
+
+## Error Logging
+
+Log errors with full context:
+
+```ts
+function logError(error: unknown) {
+  if (error instanceof SnackBaseError) {
+    console.error({
+      type: error.name,
+      code: error.code,
+      message: error.message,
+      status: error.status,
+      details: error.details,
+      field: error.field,
+      retryable: error.retryable,
+    });
+  } else {
+    console.error("Unknown error:", error);
+  }
+}
+```
+
+## Next Steps
+
+- **[Error Overview](/sdk/js/errors/overview)** - Error handling guide
+- **[Configuration](/sdk/js/configuration)** - Error callback configuration
+- **[Authentication](/sdk/js/auth/overview)** - Authentication errors

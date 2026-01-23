@@ -1,0 +1,298 @@
+---
+title: "Sorting Queries"
+description: "Sort query results by one or more fields"
+---
+
+The Query Builder's `sort()` method allows you to control the order of results in your queries.
+
+## Overview
+
+Sort your query results by one or more fields:
+
+```ts
+// Sort by creation date (newest first)
+const results = await client.records
+  .query("posts")
+  .sort("createdAt", "desc")
+  .get();
+```
+
+## Sort Direction
+
+| Direction | Description              | Example                      |
+| --------- | ------------------------ | ---------------------------- |
+| `asc`     | Ascending (A-Z, 0-9)     | `.sort("title", "asc")`      |
+| `desc`    | Descending (Z-A, 9-0)     | `.sort("createdAt", "desc")` |
+
+## Single Field Sorting
+
+Sort by a single field:
+
+```ts
+// Ascending order
+const results = await client.records
+  .query("posts")
+  .sort("title", "asc")
+  .get();
+
+// Descending order
+const results = await client.records
+  .query("posts")
+  .sort("createdAt", "desc")
+  .get();
+```
+
+## Multiple Field Sorting
+
+Sort by multiple fields by chaining `sort()` calls:
+
+```ts
+const results = await client.records
+  .query("posts")
+  .sort("status", "asc")
+  .sort("createdAt", "desc")
+  .get();
+
+// SQL equivalent:
+// ORDER BY status ASC, createdAt DESC
+```
+
+<Note>
+  The sort order is determined by the order you call `sort()`. The first
+  call has the highest priority.
+</Note>
+
+## String Sorting
+
+Sort text fields alphabetically:
+
+```ts
+// A to Z
+const results = await client.records
+  .query("posts")
+  .sort("title", "asc")
+  .get();
+
+// Z to A
+const results = await client.records
+  .query("posts")
+  .sort("title", "desc")
+  .get();
+```
+
+## Number Sorting
+
+Sort numeric fields:
+
+```ts
+// Lowest to highest
+const results = await client.records
+  .query("posts")
+  .sort("views", "asc")
+  .get();
+
+// Highest to lowest (most popular first)
+const results = await client.records
+  .query("posts")
+  .sort("views", "desc")
+  .get();
+```
+
+## Date Sorting
+
+Sort by date fields:
+
+```ts
+// Oldest first
+const results = await client.records
+  .query("posts")
+  .sort("createdAt", "asc")
+  .get();
+
+// Newest first
+const results = await client.records
+  .query("posts")
+  .sort("createdAt", "desc")
+  .get();
+```
+
+## Sorting with Filtering
+
+Combine sorting with filtering:
+
+```ts
+const results = await client.records
+  .query("posts")
+  .filter("status", "=", "published")
+  .sort("createdAt", "desc")
+  .get();
+```
+
+## Sorting Relations
+
+Sort on expanded relations:
+
+```ts
+const results = await client.records
+  .query("posts")
+  .expand("author")
+  .sort("author.name", "asc")
+  .sort("createdAt", "desc")
+  .get();
+```
+
+## Common Patterns
+
+### Latest Items First
+
+```ts
+const latestPosts = await client.records
+  .query("posts")
+  .sort("createdAt", "desc")
+  .first();
+```
+
+### Most Popular
+
+```ts
+const popularPosts = await client.records
+  .query("posts")
+  .sort("views", "desc")
+  .page(1, 10)
+  .get();
+```
+
+### Alphabetical
+
+```ts
+const alphabeticalPosts = await client.records
+  .query("posts")
+  .sort("title", "asc")
+  .get();
+```
+
+### Priority Sorting
+
+Sort by priority, then by date:
+
+```ts
+const tasks = await client.records
+  .query("tasks")
+  .sort("priority", "desc")
+  .sort("createdAt", "asc")
+  .get();
+
+// Results are sorted by priority first,
+// then by creation date within each priority level
+```
+
+## Null Handling
+
+Fields with null values are sorted last:
+
+```ts
+// Posts with publishedAt come first (newest to oldest)
+// Posts with null publishedAt come last
+const results = await client.records
+  .query("posts")
+  .sort("publishedAt", "desc")
+  .get();
+```
+
+## Complete Example
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+});
+
+async function getSortedPosts() {
+  // Get published posts, sorted by most viewed, then by date
+  const results = await client.records
+    .query("posts")
+    .filter("status", "=", "published")
+    .sort("views", "desc")
+    .sort("createdAt", "desc")
+    .page(1, 20)
+    .get();
+
+  console.log(`Found ${results.total} posts`);
+
+  results.items.forEach((post) => {
+    console.log(`${post.views} views - ${post.title}`);
+  });
+}
+```
+
+## Performance Considerations
+
+### 1. Sort on Indexed Fields
+
+For better performance, sort on indexed fields:
+
+```ts
+// Good - createdAt is typically indexed
+const results = await client.records
+  .query("posts")
+  .sort("createdAt", "desc")
+  .get();
+
+// May be slower - title may not be indexed
+const results = await client.records
+  .query("posts")
+  .sort("title", "asc")
+  .get();
+```
+
+### 2. Limit Results with Pagination
+
+Always paginate sorted queries:
+
+```ts
+const results = await client.records
+  .query("posts")
+  .sort("views", "desc")
+  .page(1, 20)
+  .get();
+```
+
+### 3. Combine Filtering and Sorting
+
+Filter before sorting to reduce the result set:
+
+```ts
+// Good - filter reduces data before sorting
+const results = await client.records
+  .query("posts")
+  .filter("status", "=", "published")
+  .sort("views", "desc")
+  .get();
+
+// Less efficient - sorts all data
+const allPosts = await client.records
+  .query("posts")
+  .sort("views", "desc")
+  .get();
+
+const publishedPosts = allPosts.items.filter(p => p.status === "published");
+```
+
+## Reference
+
+### `sort(field, direction?)`
+
+Add sorting to the query.
+
+**Parameters:**
+- `field` (string) - Field name to sort by
+- `direction` (string) - Sort direction: `"asc"` or `"desc"` (default: `"asc"`)
+
+**Returns:** `QueryBuilder<T>` - The query builder for chaining
+
+## Next Steps
+
+- **[Pagination](/sdk/js/query/pagination)** - Paginate large result sets
+- **[Filtering](/sdk/js/query/filtering)** - Filter query results
+- **[Query Overview](/sdk/js/query/overview)** - Query builder basics

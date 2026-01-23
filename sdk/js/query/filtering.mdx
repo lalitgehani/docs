@@ -1,0 +1,292 @@
+---
+title: "Filtering Queries"
+description: "Filter records with complex conditions"
+---
+
+The Query Builder's `filter()` method allows you to add conditions to your queries for precise data retrieval.
+
+## Overview
+
+Filtering allows you to retrieve only the records that match specific conditions:
+
+```ts
+const results = await client.records
+  .query("posts")
+  .filter("status", "=", "published")
+  .get();
+```
+
+## Filter Operators
+
+| Operator | Description                | Example                          |
+| -------- | -------------------------- | -------------------------------- |
+| `=`      | Equals                     | `filter("status", "=", "published")` |
+| `!=`     | Not equals                 | `filter("status", "!=", "draft")` |
+| `>`      | Greater than               | `filter("views", ">", 100)` |
+| `>=`     | Greater than or equal      | `filter("views", ">=", 100)` |
+| `<`      | Less than                  | `filter("views", "<", 1000)` |
+| `<=`     | Less than or equal         | `filter("views", "<=", 1000)` |
+| `~`      | Contains (text search)     | `filter("title", "~", "tutorial")` |
+| `!~`     | Does not contain           | `filter("title", "!~", "draft")` |
+| `?=`     | Is empty/null              | `filter("excerpt", "?=")` |
+| `?!`     | Is not empty/null          | `filter("excerpt", "?!=")` |
+
+## String Filtering
+
+```ts
+// Exact match
+const results = await client.records
+  .query("posts")
+  .filter("status", "=", "published")
+  .get();
+
+// Contains text
+const results = await client.records
+  .query("posts")
+  .filter("title", "~", "tutorial")
+  .get();
+
+// Does not contain
+const results = await client.records
+  .query("posts")
+  .filter("title", "!~", "draft")
+  .get();
+```
+
+## Number Filtering
+
+```ts
+// Greater than
+const popularPosts = await client.records
+  .query("posts")
+  .filter("views", ">", 1000)
+  .get();
+
+// Range
+const recentPopularPosts = await client.records
+  .query("posts")
+  .filter("views", ">=", 100)
+  .filter("views", "<=", 10000)
+  .get();
+```
+
+## Date Filtering
+
+```ts
+// After a date
+const recentPosts = await client.records
+  .query("posts")
+  .filter("createdAt", ">", "2024-01-01")
+  .get();
+
+// Before a date
+const oldPosts = await client.records
+  .query("posts")
+  .filter("createdAt", "<", "2023-01-01")
+  .get();
+
+// Date range
+const postsFrom2024 = await client.records
+  .query("posts")
+  .filter("createdAt", ">=", "2024-01-01")
+  .filter("createdAt", "<", "2025-01-01")
+  .get();
+```
+
+## Boolean Filtering
+
+```ts
+// Is true
+const activePosts = await client.records
+  .query("posts")
+  .filter("isPublished", "=", true)
+  .get();
+
+// Is false/null
+const draftPosts = await client.records
+  .query("posts")
+  .filter("isPublished", "?=")
+  .get();
+```
+
+## Multiple Filters
+
+Multiple filters are combined with AND logic:
+
+```ts
+const results = await client.records
+  .query("posts")
+  .filter("status", "=", "published")
+  .filter("views", ">", 100)
+  .filter("createdAt", ">=", "2024-01-01")
+  .get();
+
+// SQL equivalent:
+// WHERE status = 'published' AND views > 100 AND createdAt >= '2024-01-01'
+```
+
+## Raw Filter Strings
+
+For complex conditions, use raw filter strings:
+
+```ts
+const results = await client.records
+  .query("posts")
+  .filter("(status = 'published' || status = 'featured') && views > 100")
+  .get();
+```
+
+### Raw Filter Operators
+
+| Operator | Description              | Example                |
+| -------- | ------------------------ | ---------------------- |
+| `&&`     | AND                      | `status = 'published' && views > 100` |
+| `\|\|`   | OR                       | `status = 'published' \|\| status = 'featured'` |
+| `()`     | Grouping                 | `(status = 'published' \|\| status = 'featured') && views > 100` |
+
+## Complex Examples
+
+### OR Condition
+
+```ts
+const results = await client.records
+  .query("posts")
+  .filter("(status = 'published' || status = 'featured') && views > 100")
+  .get();
+```
+
+### Nested Conditions
+
+```ts
+const results = await client.records
+  .query("posts")
+  .filter("((status = 'published' || status = 'featured') && views > 100) || (author.id = 'user-id' && status = 'draft')")
+  .get();
+```
+
+### Select Fields in Filter
+
+```ts
+const results = await client.records
+  .query("posts")
+  .filter("author.role", "=", "editor")
+  .get();
+```
+
+## Filter on Relations
+
+Filter on expanded relations:
+
+```ts
+const results = await client.records
+  .query("posts")
+  .expand("author")
+  .filter("author.role", "=", "editor")
+  .get();
+```
+
+## Case Sensitivity
+
+Text filters are case-insensitive by default:
+
+```ts
+// Matches "Tutorial", "TUTORIAL", "tutorial", etc.
+const results = await client.records
+  .query("posts")
+  .filter("title", "~", "tutorial")
+  .get();
+```
+
+## Null Handling
+
+Check for null/empty values:
+
+```ts
+// Is null
+const postsWithoutExcerpt = await client.records
+  .query("posts")
+  .filter("excerpt", "?=")
+  .get();
+
+// Is not null
+const postsWithExcerpt = await client.records
+  .query("posts")
+  .filter("excerpt", "?!")
+  .get();
+```
+
+## Filter Best Practices
+
+### 1. Use Specific Filters
+
+```ts
+// Good - specific filter
+const posts = await client.records
+  .query("posts")
+  .filter("status", "=", "published")
+  .filter("authorId", "=", user.id)
+  .get();
+
+// Avoid - fetch all and filter in code
+const allPosts = await client.records.list("posts");
+const userPosts = allPosts.filter(p => p.authorId === user.id);
+```
+
+### 2. Combine with Indexes
+
+Filter on indexed fields when possible for better performance:
+
+```ts
+// Assuming 'slug' and 'status' are indexed
+const post = await client.records
+  .query("posts")
+  .filter("slug", "=", "my-post")
+  .filter("status", "=", "published")
+  .first();
+```
+
+### 3. Use Pagination with Filters
+
+Always paginate filtered queries:
+
+```ts
+const results = await client.records
+  .query("posts")
+  .filter("status", "=", "published")
+  .page(1, 20)
+  .get();
+```
+
+## Complete Example
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+});
+
+async function searchPosts() {
+  // Find published posts from 2024 with "tutorial" in title
+  const results = await client.records
+    .query("posts")
+    .expand("author")
+    .filter("status", "=", "published")
+    .filter("createdAt", ">=", "2024-01-01")
+    .filter("createdAt", "<", "2025-01-01")
+    .filter("title", "~", "tutorial")
+    .sort("createdAt", "desc")
+    .page(1, 20)
+    .get();
+
+  console.log(`Found ${results.total} posts`);
+
+  return results.items;
+}
+```
+
+## Next Steps
+
+- **[Sorting](/sdk/js/query/sorting)** - Sort query results
+- **[Pagination](/sdk/js/query/pagination)** - Paginate large result sets
+- **[Query Overview](/sdk/js/query/overview)** - Query builder basics
