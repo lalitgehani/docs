@@ -43,7 +43,7 @@ SnackBase follows **Clean Architecture** principles with clear separation betwee
 | Category   | Technology                                    |
 | ---------- | --------------------------------------------- |
 | Backend    | Python 3.12+, FastAPI, SQLAlchemy 2.0 (async) |
-| Database   | SQLite (dev), PostgreSQL (prod)               |
+| Database   | SQLite (dev), PostgreSQL (prod) with JSONB    |
 | Frontend   | React 19, TypeScript, Vite 7, React Router v7 |
 | UI         | TailwindCSS 4, Radix UI, ShadCN, Lucide Icons |
 | State      | Zustand, TanStack Query                       |
@@ -62,6 +62,7 @@ SnackBase follows **Clean Architecture** principles with clear separation betwee
 The configuration system provides hierarchical provider configuration for external services (authentication, email, storage).
 
 **Architecture:**
+
 - **System-level configs**: Use account_id `00000000-0000-0000-0000-000000000000` for defaults
 - **Account-level configs**: Per-account overrides that take precedence
 - **Encryption at rest**: All sensitive values encrypted using Fernet symmetric encryption
@@ -69,19 +70,20 @@ The configuration system provides hierarchical provider configuration for extern
 
 **Built-in Providers (12):**
 
-| Category | Providers |
-|----------|-----------|
-| **Auth Providers** | Email/Password |
-| **Email Providers** | SMTP, AWS SES, Resend |
+| Category            | Providers                        |
+| ------------------- | -------------------------------- |
+| **Auth Providers**  | Email/Password                   |
+| **Email Providers** | SMTP, AWS SES, Resend            |
 | **OAuth Providers** | Google, GitHub, Microsoft, Apple |
-| **SAML Providers** | Okta, Azure AD, Generic SAML |
-| **System** | System Configuration |
+| **SAML Providers**  | Okta, Azure AD, Generic SAML     |
+| **System**          | System Configuration             |
 
 ### 2. Email Verification System
 
 Handles email address verification with secure token-based workflow.
 
 **Components:**
+
 - `EmailVerificationTokenModel` - Stores SHA-256 hashed tokens
 - `EmailVerificationRepository` - Database operations
 - `EmailVerificationService` - Business logic for verification workflow
@@ -89,6 +91,7 @@ Handles email address verification with secure token-based workflow.
 - Single-use tokens (marked as used after verification)
 
 **Flow:**
+
 1. User registers → `send_verification_email()` generates token
 2. Token stored as SHA-256 hash
 3. Email sent with verification URL
@@ -100,17 +103,20 @@ Handles email address verification with secure token-based workflow.
 Multi-language email template system with Jinja2 variable support.
 
 **Components:**
+
 - `EmailTemplateModel` - ORM model with locale support
 - `EmailTemplateRepository` - Template CRUD operations
 - `TemplateRenderer` - Jinja2-based rendering
 - `EmailService` - Orchestrates sending with provider selection
 
 **Template Types:**
+
 - `email_verification` - Email verification emails
 - `password_reset` - Password reset emails
 - `invitation` - User invitation emails
 
 **Features:**
+
 - Account-level templates override system defaults
 - Multi-language support via `locale` field
 - System variables injected: `app_name`, `app_url`, `support_email`
@@ -120,18 +126,19 @@ Multi-language email template system with Jinja2 variable support.
 
 **33+ Hook Events across 8 Categories:**
 
-| Category | Events |
-|----------|--------|
-| **App Lifecycle** (3) | `on_bootstrap`, `on_serve`, `on_terminate` |
-| **Model Operations** (6) | `on_model_before/after_create/update/delete` |
-| **Record Operations** (8) | `on_record_before/after_create/update/delete/query` |
-| **Collection Operations** (6) | `on_collection_before/after_create/update/delete` |
-| **Auth Operations** (8) | `on_auth_before/after_login/logout/register/password_reset` |
-| **Request Processing** (2) | `on_before_request`, `on_after_request` |
-| **Realtime** (4) | `on_realtime_connect/disconnect/message/subscribe/unsubscribe` |
-| **Mailer** (2) | `on_mailer_before/after_send` |
+| Category                      | Events                                                         |
+| ----------------------------- | -------------------------------------------------------------- |
+| **App Lifecycle** (3)         | `on_bootstrap`, `on_serve`, `on_terminate`                     |
+| **Model Operations** (6)      | `on_model_before/after_create/update/delete`                   |
+| **Record Operations** (8)     | `on_record_before/after_create/update/delete/query`            |
+| **Collection Operations** (6) | `on_collection_before/after_create/update/delete`              |
+| **Auth Operations** (8)       | `on_auth_before/after_login/logout/register/password_reset`    |
+| **Request Processing** (2)    | `on_before_request`, `on_after_request`                        |
+| **Realtime** (4)              | `on_realtime_connect/disconnect/message/subscribe/unsubscribe` |
+| **Mailer** (2)                | `on_mailer_before/after_send`                                  |
 
 **Built-in Hooks:**
+
 - `timestamp_hook` (priority: -100) - Sets `created_at`/`updated_at`
 - `account_isolation_hook` (priority: -200) - Enforces `account_id` on records
 - `created_by_hook` (priority: -150) - Sets `created_by`/`updated_by`
@@ -143,6 +150,8 @@ Multi-language email template system with Jinja2 variable support.
 GxP-compliant audit logging with blockchain-style integrity chain.
 
 **Features:**
+
+- **Configurable**: Toggle via `SNACKBASE_AUDIT_LOGGING_ENABLED` (default: `true`)
 - **Column-level granularity**: Each row represents a single column change
 - **Immutable**: Database triggers prevent UPDATE/DELETE operations
 - **Blockchain integrity**: `checksum` and `previous_hash` chain
@@ -151,6 +160,7 @@ GxP-compliant audit logging with blockchain-style integrity chain.
 - **Record capture**: Hooks automatically log all dynamic collection record changes
 
 **Audit Flow:**
+
 1. SQLAlchemy event listener detects model change OR hook detects record change
 2. `AuditLogService` creates audit entries for each changed column
 3. `AuditChecksum` computes SHA-256 hash linking to previous entry
@@ -223,23 +233,23 @@ EmailService.send_template_email()
 
 ## Key Files
 
-| File                                                        | Purpose                                  |
-| ----------------------------------------------------------- | ---------------------------------------- |
-| `src/snackbase/infrastructure/api/app.py`                   | FastAPI app factory                      |
-| `src/snackbase/core/config.py`                              | Pydantic Settings                        |
-| `src/snackbase/core/hooks/hook_registry.py`                 | Hook system core                         |
-| `src/snackbase/core/configuration/config_registry.py`       | Configuration registry                    |
-| `src/snackbase/core/rules/`                                 | Rule engine (lexer→parser→AST→evaluator) |
-| `src/snackbase/domain/services/permission_resolver.py`      | Permission resolution                    |
-| `src/snackbase/domain/services/email_verification_service.py` | Email verification logic               |
-| `src/snackbase/domain/services/audit_log_service.py`        | Audit logging service                    |
-| `src/snackbase/infrastructure/persistence/database.py`      | SQLAlchemy engine                        |
-| `src/snackbase/infrastructure/persistence/table_builder.py` | Dynamic table creation                   |
-| `src/snackbase/infrastructure/services/email_service.py`    | Email sending with templates             |
-| `src/snackbase/infrastructure/hooks/builtin_hooks.py`       | Built-in hook implementations            |
-| `ui/src/main.tsx`                                           | React app entry                          |
-| `ui/src/App.tsx`                                            | Route configuration                      |
-| `ui/src/lib/api.ts`                                         | Axios client with token refresh          |
+| File                                                          | Purpose                                  |
+| ------------------------------------------------------------- | ---------------------------------------- |
+| `src/snackbase/infrastructure/api/app.py`                     | FastAPI app factory                      |
+| `src/snackbase/core/config.py`                                | Pydantic Settings                        |
+| `src/snackbase/core/hooks/hook_registry.py`                   | Hook system core                         |
+| `src/snackbase/core/configuration/config_registry.py`         | Configuration registry                   |
+| `src/snackbase/core/rules/`                                   | Rule engine (lexer→parser→AST→evaluator) |
+| `src/snackbase/domain/services/permission_resolver.py`        | Permission resolution                    |
+| `src/snackbase/domain/services/email_verification_service.py` | Email verification logic                 |
+| `src/snackbase/domain/services/audit_log_service.py`          | Audit logging service                    |
+| `src/snackbase/infrastructure/persistence/database.py`        | SQLAlchemy engine                        |
+| `src/snackbase/infrastructure/persistence/table_builder.py`   | Dynamic table creation                   |
+| `src/snackbase/infrastructure/services/email_service.py`      | Email sending with templates             |
+| `src/snackbase/infrastructure/hooks/builtin_hooks.py`         | Built-in hook implementations            |
+| `ui/src/main.tsx`                                             | React app entry                          |
+| `ui/src/App.tsx`                                              | Route configuration                      |
+| `ui/src/lib/api.ts`                                           | Axios client with token refresh          |
 
 ## Related Guides
 

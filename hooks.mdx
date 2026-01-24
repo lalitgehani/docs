@@ -22,7 +22,8 @@ The SnackBase Hook System is an **extensibility framework** that allows develope
 - **Stable API**: Guaranteed backward compatibility
 
 <Check>
-  The Hook System API is stable and follows semantic versioning. Breaking changes will only occur in major version releases.
+  The Hook System API is stable and follows semantic versioning. Breaking
+  changes will only occur in major version releases.
 </Check>
 
 ## Stable API Contract
@@ -142,6 +143,7 @@ async def validate_post(event, data, context):
 ### Available Decorator Methods
 
 **Record Operations:**
+
 - `on_record_before_create(collection, priority=0)`
 - `on_record_after_create(collection, priority=0)`
 - `on_record_before_update(collection, priority=0)`
@@ -152,6 +154,7 @@ async def validate_post(event, data, context):
 - `on_record_after_query(collection, priority=0)`
 
 **Collection Operations:**
+
 - `on_collection_before_create(priority=0)`
 - `on_collection_after_create(priority=0)`
 - `on_collection_before_update(priority=0)`
@@ -160,6 +163,7 @@ async def validate_post(event, data, context):
 - `on_collection_after_delete(priority=0)`
 
 **Auth Operations:**
+
 - `on_auth_before_login(priority=0)`
 - `on_auth_after_login(priority=0)`
 - `on_auth_before_register(priority=0)`
@@ -231,6 +235,11 @@ SnackBase includes **4 built-in hooks** that provide core functionality. These h
 **Events**: `on_record_after_create`, `on_record_after_update`, `on_record_after_delete`
 
 **Priority**: `100` (runs after all user hooks)
+
+<Note>
+  This hook respects the `SNACKBASE_AUDIT_LOGGING_ENABLED` configuration. When
+  disabled, no audit entries are captured.
+</Note>
 
 ### Built-in Hook Execution Order
 

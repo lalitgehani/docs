@@ -50,6 +50,7 @@ uv run python -m snackbase serve --reload
 ```
 
 **5. Access the application**:
+
 - API: http://localhost:8000
 - Swagger UI: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
@@ -216,9 +217,10 @@ SNACKBASE_STORAGE_PATH=/home/snackbase/app/sb_data/files
 <Warning>
   Generate a strong secret key:
 
-  ```bash
-  python -c "import secrets; print(secrets.token_urlsafe(64))"
-  ```
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(64))"
+```
+
 </Warning>
 
 #### 4. Set Up PostgreSQL
@@ -439,11 +441,13 @@ SNACKBASE_DATABASE_URL=sqlite+aiosqlite:///./sb_data/snackbase.db
 ```
 
 **Pros**:
+
 - Zero configuration
 - Perfect for development
 - File-based, easy to backup
 
 **Cons**:
+
 - Not suitable for production
 - Limited concurrency
 - No network access
@@ -489,26 +493,27 @@ SNACKBASE_DB_POOL_TIMEOUT=30
 
 ### Complete Reference
 
-| Variable                                | Default                                      | Description                                   |
-| --------------------------------------- | -------------------------------------------- | --------------------------------------------- |
-| `SNACKBASE_ENVIRONMENT`                 | `development`                                | Environment: development, staging, production |
-| `SNACKBASE_DEBUG`                       | `false`                                      | Enable debug mode                             |
-| `SNACKBASE_APP_NAME`                    | `SnackBase`                                  | Application name                              |
-| `SNACKBASE_APP_VERSION`                 | `0.1.0`                                      | Application version                           |
-| `SNACKBASE_API_PREFIX`                  | `/api/v1`                                    | API route prefix                              |
-| `SNACKBASE_HOST`                        | `0.0.0.0`                                    | Server bind address                           |
-| `SNACKBASE_PORT`                        | `8000`                                       | Server port                                   |
-| `SNACKBASE_DATABASE_URL`                | `sqlite+aiosqlite:///./sb_data/snackbase.db` | Database connection URL                       |
-| `SNACKBASE_SECRET_KEY`                  | (auto-generated)                             | JWT signing key                               |
-| `SNACKBASE_ACCESS_TOKEN_EXPIRE_MINUTES` | `60`                                         | Access token expiration                       |
-| `SNACKBASE_REFRESH_TOKEN_EXPIRE_DAYS`   | `7`                                          | Refresh token expiration                      |
-| `SNACKBASE_CORS_ORIGINS`                | `*`                                          | Allowed CORS origins (comma-separated)        |
-| `SNACKBASE_CORS_ALLOW_CREDENTIALS`      | `true`                                       | Allow credentials in CORS                     |
-| `SNACKBASE_CORS_ALLOW_METHODS`          | `*`                                          | Allowed HTTP methods                          |
-| `SNACKBASE_CORS_ALLOW_HEADERS`          | `*`                                          | Allowed headers                               |
-| `SNACKBASE_LOG_LEVEL`                   | `INFO`                                       | Logging level: DEBUG, INFO, WARNING, ERROR    |
-| `SNACKBASE_LOG_FORMAT`                  | `json`                                       | Log format: json, console                     |
-| `SNACKBASE_STORAGE_PATH`                | `./sb_data/files`                            | File storage directory                        |
+| Variable                                | Default                                      | Description                                    |
+| --------------------------------------- | -------------------------------------------- | ---------------------------------------------- |
+| `SNACKBASE_ENVIRONMENT`                 | `development`                                | Environment: development, staging, production  |
+| `SNACKBASE_DEBUG`                       | `false`                                      | Enable debug mode                              |
+| `SNACKBASE_APP_NAME`                    | `SnackBase`                                  | Application name                               |
+| `SNACKBASE_APP_VERSION`                 | `0.1.0`                                      | Application version                            |
+| `SNACKBASE_API_PREFIX`                  | `/api/v1`                                    | API route prefix                               |
+| `SNACKBASE_HOST`                        | `0.0.0.0`                                    | Server bind address                            |
+| `SNACKBASE_PORT`                        | `8000`                                       | Server port                                    |
+| `SNACKBASE_DATABASE_URL`                | `sqlite+aiosqlite:///./sb_data/snackbase.db` | Database connection URL                        |
+| `SNACKBASE_SECRET_KEY`                  | (auto-generated)                             | JWT signing key                                |
+| `SNACKBASE_ACCESS_TOKEN_EXPIRE_MINUTES` | `60`                                         | Access token expiration                        |
+| `SNACKBASE_REFRESH_TOKEN_EXPIRE_DAYS`   | `7`                                          | Refresh token expiration                       |
+| `SNACKBASE_CORS_ORIGINS`                | `*`                                          | Allowed CORS origins (comma-separated)         |
+| `SNACKBASE_CORS_ALLOW_CREDENTIALS`      | `true`                                       | Allow credentials in CORS                      |
+| `SNACKBASE_CORS_ALLOW_METHODS`          | `*`                                          | Allowed HTTP methods                           |
+| `SNACKBASE_CORS_ALLOW_HEADERS`          | `*`                                          | Allowed headers                                |
+| `SNACKBASE_LOG_LEVEL`                   | `INFO`                                       | Logging level: DEBUG, INFO, WARNING, ERROR     |
+| `SNACKBASE_LOG_FORMAT`                  | `json`                                       | Log format: json, console                      |
+| `SNACKBASE_STORAGE_PATH`                | `./sb_data/files`                            | File storage directory                         |
+| `SNACKBASE_AUDIT_LOGGING_ENABLED`       | `true`                                       | Enable GxP-compliant audit logging             |
 | `SNACKBASE_SINGLE_TENANT_MODE`          | `false`                                      | Enable single-tenant mode                      |
 | `SNACKBASE_SINGLE_TENANT_ACCOUNT`       | (none)                                       | Target account slug for single-tenant mode     |
 | `SNACKBASE_SINGLE_TENANT_ACCOUNT_NAME`  | (none)                                       | Optional display name for bootstrapped account |
@@ -531,7 +536,8 @@ Response:
 {
   "status": "healthy",
   "service": "SnackBase",
-  "version": "0.1.0"
+  "version": "0.1.0",
+  "audit_logging_enabled": true
 }
 ```
 
@@ -550,7 +556,8 @@ Response:
   "status": "ready",
   "service": "SnackBase",
   "version": "0.1.0",
-  "database": "connected"
+  "database": "connected",
+  "audit_logging_enabled": true
 }
 ```
 
@@ -611,6 +618,7 @@ sudo journalctl -u snackbase -n 50 --no-pager
 ```
 
 **Common issues**:
+
 - Database connection failure
 - Port already in use
 - Missing environment variables
@@ -748,6 +756,7 @@ du -sh sb_data/
 ```
 
 **Application metrics** (future):
+
 - Prometheus integration
 - Grafana dashboards
 - Custom metrics endpoint
@@ -771,9 +780,7 @@ pg_dump -U snackbase snackbase_prod > backup_$(date +%Y%m%d_%H%M%S).sql
 tar -czf files_backup_$(date +%Y%m%d).tar.gz sb_data/files/
 ```
 
-<Note>
-  Automated backup/restore commands will be added in Phase 5 (F5.10)
-</Note>
+<Note>Automated backup/restore commands will be added in Phase 5 (F5.10)</Note>
 
 ## Security Best Practices
 
@@ -834,7 +841,7 @@ If your frontend is blocked by CSP:
 
 Example CSP for frontend with external CDN:
 
-```bash
+````bash
 SNACKBASE_CSP_POLICY="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'"
 
 ---
@@ -856,7 +863,7 @@ When enabled:
 SNACKBASE_SINGLE_TENANT_MODE=true
 SNACKBASE_SINGLE_TENANT_ACCOUNT=my-awesome-app
 SNACKBASE_SINGLE_TENANT_ACCOUNT_NAME="My Awesome App"
-```
+````
 
 ### Authentication Flow
 
@@ -892,7 +899,9 @@ SNACKBASE_HTTPS_REDIRECT_ENABLED=true
 ```
 
 <Note>
-  The default CSP policy is designed to work with the SnackBase Admin UI. If you're using a custom frontend with external CDNs or inline scripts, you may need to adjust the CSP policy.
+  The default CSP policy is designed to work with the SnackBase Admin UI. If
+  you're using a custom frontend with external CDNs or inline scripts, you may
+  need to adjust the CSP policy.
 </Note>
 
 #### Troubleshooting CSP Issues

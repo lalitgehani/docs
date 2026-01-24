@@ -145,8 +145,8 @@ const patched = await client.records.patch("posts", "record-id", {
 ```
 
 <Warning>
-  Use `patch()` for partial updates to avoid overwriting fields you don't
-  intend to change.
+  Use `patch()` for partial updates to avoid overwriting fields you don't intend
+  to change.
 </Warning>
 
 ## Step 6: Delete Records
@@ -247,3 +247,10 @@ main().catch(console.error);
 - **[Realtime](/sdk/js/realtime/overview)** - Build real-time features
 - **[React Integration](/sdk/js/react/setup)** - Use with React applications
 - **[Error Handling](/sdk/js/errors/overview)** - Handle errors gracefully
+
+<Tip>
+  Check out the [Feature Voting
+  App](https://github.com/lalitgehani/snackbase/tree/main/examples/feature-voting-app)
+  for a complete example demonstrating authentication, CRUD operations,
+  real-time subscriptions, and React integration with the SDK.
+</Tip>
