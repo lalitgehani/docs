@@ -112,7 +112,21 @@
               "sdk/js/services/users",
               "sdk/js/services/accounts",
               "sdk/js/services/roles",
-              "sdk/js/services/groups"
+              "sdk/js/services/groups",
+              "sdk/js/services/invitations",
+              "sdk/js/services/api-keys",
+              "sdk/js/services/audit-logs",
+              "sdk/js/services/collection-rules"
+            ]
+          },
+          {
+            "group": "Admin Services",
+            "pages": [
+              "sdk/js/services/macros",
+              "sdk/js/services/dashboard",
+              "sdk/js/services/admin",
+              "sdk/js/services/files",
+              "sdk/js/services/migrations"
             ]
           },
           {

@@ -1,0 +1,201 @@
+---
+title: "Audit Logs Service"
+description: "View and export audit logs"
+---
+
+The Audit Logs service provides access to system activity logs for compliance, security monitoring, and debugging purposes.
+
+## Overview
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+});
+
+// Access the audit logs service
+const auditLogs = client.auditLogs;
+```
+
+<Note>
+  Audit log access requires superadmin authentication.
+</Note>
+
+## List Audit Logs
+
+Retrieve audit logs with optional filtering:
+
+```ts
+// Get all audit logs
+const response = await client.auditLogs.list();
+// Returns: { items: AuditLog[], total: number, audit_logging_enabled: boolean }
+```
+
+Filter by specific criteria:
+
+```ts
+const response = await client.auditLogs.list({
+  account_id: "account-id",
+  table_name: "users",
+  operation: "update",
+  limit: 50,
+  skip: 0
+});
+```
+
+Available filters:
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `account_id` | string | Filter by account |
+| `table_name` | string | Filter by table/collection |
+| `operation` | string | Filter by operation (create, update, delete) |
+| `user_id` | string | Filter by user |
+| `limit` | number | Max results per page |
+| `skip` | number | Number of results to skip |
+| `date_from` | string | ISO date filter (start) |
+| `date_to` | string | ISO date filter (end) |
+
+## Get a Single Audit Log
+
+Get details for a specific audit log entry:
+
+```ts
+const log = await client.auditLogs.get("log-id");
+```
+
+## Export Audit Logs
+
+Export audit logs in various formats:
+
+### Export as JSON
+
+```ts
+const jsonData = await client.auditLogs.export(
+  { table_name: "users" },
+  "json"
+);
+// Returns JSON string
+```
+
+### Export as CSV
+
+```ts
+const csvData = await client.auditLogs.export(
+  { table_name: "users" },
+  "csv"
+);
+// Returns CSV string
+```
+
+### Export as PDF
+
+```ts
+const pdfBase64 = await client.auditLogs.export(
+  { table_name: "users" },
+  "pdf"
+);
+// Returns base64-encoded PDF string
+```
+
+<Note>
+  PDF exports are returned as base64-encoded strings. Decode them to binary
+  before saving or displaying.
+</Note>
+
+## Complete Example
+
+Audit log viewer component:
+
+```ts
+import { useState } from "react";
+import { useQuery } from "@snackbase/sdk/react";
+
+function AuditLogViewer() {
+  const [filters, setFilters] = useState({
+    table_name: "",
+    operation: "",
+    limit: 50
+  });
+
+  const { data: response, isLoading } = useQuery({
+    queryKey: ["audit-logs", filters],
+    queryFn: () => client.auditLogs.list(filters)
+  });
+
+  const handleExport = async (format: "json" | "csv" | "pdf") => {
+    const data = await client.auditLogs.export(filters, format);
+
+    if (format === "pdf") {
+      // Decode base64 for PDF
+      const binary = atob(data);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "audit-logs.pdf";
+      a.click();
+    } else {
+      // JSON or CSV - download directly
+      const blob = new Blob([data], {
+        type: format === "json" ? "application/json" : "text/csv"
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `audit-logs.${format}`;
+      a.click();
+    }
+  };
+
+  if (isLoading) return <div>Loading...</div>;
+
+  return (
+    <div>
+      <h2>Audit Logs</h2>
+      <p>Status: {response.audit_logging_enabled ? "Enabled" : "Disabled"}</p>
+      <p>Total entries: {response.total}</p>
+
+      <div>
+        <button onClick={() => handleExport("json")}>Export JSON</button>
+        <button onClick={() => handleExport("csv")}>Export CSV</button>
+        <button onClick={() => handleExport("pdf")}>Export PDF</button>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>User</th>
+            <th>Table</th>
+            <th>Operation</th>
+            <th>Changes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {response.items.map(log => (
+            <tr key={log.id}>
+              <td>{new Date(log.created_at).toLocaleString()}</td>
+              <td>{log.user_email}</td>
+              <td>{log.table_name}</td>
+              <td>{log.operation}</td>
+              <td>{JSON.stringify(log.changes)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+```
+
+## Next Steps
+
+- **[Dashboard](/sdk/js/services/dashboard)** - View system statistics
+- **[Admin Service](/sdk/js/services/admin)** - Manage system configuration
+- **[Realtime](/sdk/js/realtime/overview)** - Monitor events in real-time

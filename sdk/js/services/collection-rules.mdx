@@ -1,0 +1,309 @@
+---
+title: "Collection Rules Service"
+description: "Manage access rules and field permissions for collections"
+---
+
+The Collection Rules service allows you to define access rules and field-level permissions for collections. This service works with the Roles service to provide fine-grained access control.
+
+## Overview
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+});
+
+// Access the collection rules service
+const collectionRules = client.collectionRules;
+```
+
+<Note>
+  Collection rule management requires superadmin authentication.
+</Note>
+
+## Get Collection Rules
+
+Get the access rules and field permissions for a specific collection:
+
+```ts
+const rules = await client.collectionRules.get("posts");
+```
+
+The response includes:
+
+```ts
+{
+  "collection_name": "posts",
+  "rules": [
+    {
+      "name": "own_posts_only",
+      "effect": "allow",
+      "action": "read",
+      "condition": {
+        "sql": "{{current_user}} = posts.user_id"
+      }
+    }
+  ],
+  "field_permissions": [
+    {
+      "field": "email",
+      "read_roles": ["admin"],
+      "write_roles": ["admin"]
+    }
+  ]
+}
+```
+
+## Update Collection Rules
+
+Update the access rules and field permissions for a collection:
+
+```ts
+const updated = await client.collectionRules.update("posts", {
+  rules: [
+    {
+      name: "own_posts_only",
+      effect: "allow",
+      action: "read",
+      condition: {
+        sql: "{{current_user}} = posts.user_id"
+      }
+    },
+    {
+      name: "authors_can_create",
+      effect: "allow",
+      action: "create",
+      condition: {
+        sql: "'author' IN {{current_user_roles}}"
+      }
+    }
+  ],
+  field_permissions: [
+    {
+      field: "email",
+      read_roles: ["admin"],
+      write_roles: ["admin"]
+    },
+    {
+      field: "published",
+      read_roles: ["*"],
+      write_roles: ["admin", "editor"]
+    }
+  ]
+});
+```
+
+## Validate a Rule
+
+Validate a rule expression before using it:
+
+```ts
+const result = await client.collectionRules.validateRule(
+  "{{current_user}} = posts.user_id",
+  "read",
+  ["id", "user_id", "title", "content"]
+);
+```
+
+The response indicates if the rule is valid and any issues:
+
+```ts
+{
+  "is_valid": true,
+  "errors": [],
+  "warnings": []
+}
+```
+
+## Test a Rule
+
+Test how a rule evaluates with a specific context:
+
+```ts
+const result = await client.collectionRules.testRule(
+  "{{current_user}} = posts.user_id",
+  {
+    current_user: "user-123",
+    posts: { user_id: "user-123" }
+  }
+);
+```
+
+The response shows the evaluation result:
+
+```ts
+{
+  "allowed": true,
+  "reason": "Rule evaluated to true"
+}
+```
+
+## Rule Structure
+
+Rules are defined with the following structure:
+
+```ts
+{
+  name: string;              // Unique rule name
+  effect: "allow" | "deny";  // Allow or deny access
+  action: string;            // Operation: list, view, create, update, delete
+  priority?: number;         // Higher priority rules evaluated first
+  condition?: {
+    sql?: string;            // SQL condition using macros
+    expression?: string;     // Expression language condition
+  };
+}
+```
+
+## Field Permissions
+
+Field-level permissions control read/write access to specific fields:
+
+```ts
+{
+  field: string;             // Field name
+  read_roles: string[];      // Roles that can read this field ("*" for all)
+  write_roles: string[];     // Roles that can write this field
+}
+```
+
+## Common Patterns
+
+### Ownership-Based Access
+
+Allow users to only access their own records:
+
+```ts
+{
+  name: "own_records",
+  effect: "allow",
+  action: "read",
+  condition: {
+    sql: "{{current_user}} = records.user_id"
+  }
+}
+```
+
+### Role-Based Access
+
+Allow access based on user roles:
+
+```ts
+{
+  name: "editors_only",
+  effect: "allow",
+  action: "update",
+  condition: {
+    sql: "'editor' IN {{current_user_roles}}"
+  }
+}
+```
+
+### Group Membership
+
+Allow access based on group membership:
+
+```ts
+{
+  name: "group_members",
+  effect: "allow",
+  action: "read",
+  condition: {
+    sql: "{{current_user}} IN (SELECT user_id FROM group_members WHERE group_id = 'group-123')"
+  }
+}
+```
+
+### Field-Level Privacy
+
+Restrict sensitive fields to admins:
+
+```ts
+{
+  field_permissions: [
+    {
+      field: "salary",
+      read_roles: ["admin", "hr"],
+      write_roles: ["admin"]
+    },
+    {
+      field: "email",
+      read_roles: ["*"],
+      write_roles: ["admin"]
+    }
+  ]
+}
+```
+
+## Complete Example
+
+Collection rules editor:
+
+```ts
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@snackbase/sdk/react";
+
+function CollectionRulesEditor({ collectionName }) {
+  const queryClient = useQueryClient();
+  const { data: rules, isLoading } = useQuery({
+    queryKey: ["collection-rules", collectionName],
+    queryFn: () => client.collectionRules.get(collectionName)
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data) => client.collectionRules.update(collectionName, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(["collection-rules", collectionName]);
+    }
+  });
+
+  const handleSave = () => {
+    updateMutation.mutate(rules);
+  };
+
+  if (isLoading) return <div>Loading...</div>;
+
+  return (
+    <div>
+      <h2>Rules: {collectionName}</h2>
+
+      <h3>Access Rules</h3>
+      {rules.rules.map((rule, index) => (
+        <div key={index}>
+          <input
+            value={rule.name}
+            onChange={(e) => {
+              const newRules = [...rules.rules];
+              newRules[index].name = e.target.value;
+              updateRules(newRules);
+            }}
+          />
+          <select
+            value={rule.effect}
+            onChange={(e) => {
+              const newRules = [...rules.rules];
+              newRules[index].effect = e.target.value;
+              updateRules(newRules);
+            }}
+          >
+            <option value="allow">Allow</option>
+            <option value="deny">Deny</option>
+          </select>
+          {/* ... more fields */}
+        </div>
+      ))}
+
+      <button onClick={handleSave} disabled={updateMutation.isPending}>
+        Save Rules
+      </button>
+    </div>
+  );
+}
+```
+
+## Next Steps
+
+- **[Roles Service](/sdk/js/services/roles)** - Define roles and permissions
+- **[Macros Service](/sdk/js/services/macros)** - Create reusable SQL macros
+- **[Permissions](/permissions)** - Understand the permission system

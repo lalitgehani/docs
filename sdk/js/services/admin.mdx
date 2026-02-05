@@ -1,0 +1,192 @@
+---
+title: "Admin Service"
+description: "Manage system configuration and providers"
+---
+
+The Admin service provides superadmin functionality for managing system configurations, providers, and testing external connections.
+
+## Overview
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+});
+
+// Access the admin service
+const admin = client.admin;
+```
+
+<Note>
+  All admin operations require superadmin authentication.
+</Note>
+
+## Configuration Statistics
+
+Get configuration statistics by category:
+
+```ts
+const stats = await admin.getConfigurationStats();
+// Returns: { email: number, oauth: number, saml: number, ... }
+```
+
+## Recent Configurations
+
+Get recently modified configurations:
+
+```ts
+const recent = await admin.getRecentConfigurations(10);
+// Returns array of recently modified configurations
+```
+
+## System Configurations
+
+List all system-level configurations:
+
+```ts
+// Get all system configurations
+const configs = await admin.listSystemConfigurations();
+
+// Filter by category
+const emailConfigs = await admin.listSystemConfigurations("email");
+```
+
+## Account Configurations
+
+List configurations for a specific account:
+
+```ts
+const configs = await admin.listAccountConfigurations("account-id");
+
+// Filter by category
+const oauthConfigs = await admin.listAccountConfigurations("account-id", "oauth");
+```
+
+## Configuration Values
+
+Get configuration values (secrets are masked):
+
+```ts
+const values = await admin.getConfigurationValues("config-id");
+// Returns: { provider: "smtp", host: "smtp.example.com", password: "***" }
+```
+
+Update configuration values:
+
+```ts
+const updated = await admin.updateConfigurationValues("config-id", {
+  host: "smtp.new-example.com",
+  port: 587
+});
+```
+
+## Configuration Status
+
+Enable or disable a configuration:
+
+```ts
+const config = await admin.updateConfigurationStatus("config-id", false);
+```
+
+## Create Configuration
+
+Create a new configuration record:
+
+```ts
+const config = await admin.createConfiguration({
+  account_id: "00000000-0000-0000-0000-000000000000",
+  category: "email",
+  provider_name: "smtp",
+  enabled: true
+});
+```
+
+## Delete Configuration
+
+Delete a configuration:
+
+```ts
+await admin.deleteConfiguration("config-id");
+```
+
+## Providers
+
+List all available provider definitions:
+
+```ts
+// Get all providers
+const providers = await admin.listProviders();
+
+// Filter by category
+const emailProviders = await admin.listProviders("email");
+```
+
+Get provider schema:
+
+```ts
+const schema = await admin.getProviderSchema("email", "smtp");
+// Returns JSON schema for SMTP configuration
+```
+
+## Test Connection
+
+Test a provider connection before saving:
+
+```ts
+const result = await admin.testConnection("email", "smtp", {
+  host: "smtp.example.com",
+  port: 587,
+  username: "user@example.com",
+  password: "secret"
+});
+// Returns: { success: boolean, message: string, latency_ms?: number }
+```
+
+## Complete Example
+
+Setting up a new email configuration:
+
+```ts
+async function setupEmailProvider() {
+  // 1. Get the schema to understand required fields
+  const schema = await admin.getProviderSchema("email", "smtp");
+
+  // 2. Test the connection first
+  const testResult = await admin.testConnection("email", "smtp", {
+    host: "smtp.gmail.com",
+    port: 587,
+    username: "your-email@gmail.com",
+    password: "your-app-password"
+  });
+
+  if (!testResult.success) {
+    throw new Error(`Connection failed: ${testResult.message}`);
+  }
+
+  // 3. Create the configuration
+  const config = await admin.createConfiguration({
+    account_id: "00000000-0000-0000-0000-000000000000",
+    category: "email",
+    provider_name: "smtp",
+    enabled: true
+  });
+
+  // 4. Set the values
+  await admin.updateConfigurationValues(config.id, {
+    host: "smtp.gmail.com",
+    port: 587,
+    username: "your-email@gmail.com",
+    password: "your-app-password",
+    use_tls: true
+  });
+
+  return config;
+}
+```
+
+## Next Steps
+
+- **[Email Templates Service](/sdk/js/services/email-templates)** - Manage email templates
+- **[Dashboard](/sdk/js/services/dashboard)** - View system statistics
+- **[Audit Logs](/sdk/js/services/audit-logs)** - Track configuration changes

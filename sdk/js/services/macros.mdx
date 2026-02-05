@@ -1,0 +1,131 @@
+---
+title: "Macros Service"
+description: "Manage SQL macros for use in permission rules"
+---
+
+The Macros service allows you to create and manage custom SQL macros that can be used in permission rules. Macros provide reusable SQL fragments that help you write more complex and dynamic permission logic.
+
+## Overview
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+});
+
+// Access the macros service
+const macros = client.macros;
+```
+
+<Note>
+  Most macro operations require superadmin authentication.
+</Note>
+
+## List Macros
+
+Retrieve all available macros, including built-in ones:
+
+```ts
+const response = await client.macros.list();
+// Returns: { items: Macro[], total: number }
+```
+
+The response includes both built-in macros (provided by SnackBase) and custom macros created for your account.
+
+## Get a Macro
+
+Get details for a specific macro:
+
+```ts
+const macro = await client.macros.get("macro-id");
+```
+
+## Create a Macro
+
+Create a new custom macro:
+
+```ts
+const macro = await client.macros.create({
+  name: "user_posts",
+  description: "Get posts owned by the current user",
+  template: "SELECT * FROM posts WHERE user_id = {{user_id}}",
+  parameters: ["user_id"]
+});
+```
+
+The `template` property uses `{{parameter_name}}` syntax for parameter substitution.
+
+## Update a Macro
+
+Update an existing custom macro:
+
+```ts
+const updated = await client.macros.update("macro-id", {
+  description: "Updated description",
+  template: "SELECT * FROM posts WHERE user_id = {{user_id}} AND status = 'published'"
+});
+```
+
+<Note>
+  Built-in macros cannot be updated.
+</Note>
+
+## Delete a Macro
+
+Delete a custom macro:
+
+```ts
+await client.macros.delete("macro-id");
+```
+
+<Note>
+  You cannot delete built-in macros or macros that are currently in use by permission rules.
+</Note>
+
+## Test a Macro
+
+Test a macro with specific parameters:
+
+```ts
+const result = await client.macros.test("macro-id", {
+  user_id: "user-123"
+});
+// Returns: { sql: string, parameters: any[] }
+```
+
+This is useful for validating that your macro generates the correct SQL before using it in production rules.
+
+## Built-in Macros
+
+SnackBase provides several built-in macros:
+
+| Name | Description |
+| ------ | ----------- |
+| `current_user` | Get the ID of the currently authenticated user |
+| `current_account` | Get the ID of the current account |
+| `user_roles` | Get roles for a specific user |
+| `group_members` | Get members of a specific group |
+
+## Using Macros in Rules
+
+Macros can be referenced in permission rules using the `{{macro_name}}` syntax:
+
+```ts
+// Example rule using a macro
+const rule = {
+  name: "own_posts_only",
+  effect: "allow",
+  action: "read",
+  resource: "posts",
+  condition: {
+    sql: "{{current_user}} = posts.user_id"
+  }
+};
+```
+
+## Next Steps
+
+- **[Permissions](/permissions)** - Understand permission rules
+- **[Roles Service](/sdk/js/services/roles)** - Manage roles and permissions
+- **[Collection Rules](/sdk/js/services/collections)** - Apply rules to collections

@@ -81,6 +81,67 @@ await client.collections.delete("collection-id");
   action cannot be undone.
 </Warning>
 
+## Export Collections
+
+Export collections to JSON format for backup or migration:
+
+```ts
+// Export all collections
+const exportData = await client.collections.export();
+// exportData contains: { collections: Collection[], rules: CollectionRule[] }
+```
+
+You can also export specific collections:
+
+```ts
+// Export specific collections by ID
+const exportData = await client.collections.export({
+  collection_ids: ['col-123', 'col-456']
+});
+```
+
+<Note>
+  Exporting collections requires superadmin authentication. The export
+  includes collection schemas and rules, but not the actual records.
+</Note>
+
+## Import Collections
+
+Import collections from a previous export:
+
+```ts
+// Import with error strategy (fail on conflicts)
+const result = await client.collections.import({
+  data: exportData,
+  strategy: 'error'
+});
+```
+
+The `strategy` parameter determines how conflicts are handled:
+
+- **`error`** - Fail if a collection already exists (default)
+- **`skip`** - Skip existing collections, only import new ones
+- **`update`** - Update existing collections with the schema from the import
+
+```ts
+// Import with skip strategy
+const result = await client.collections.import({
+  data: exportData,
+  strategy: 'skip'
+});
+
+// Import with update strategy
+const result = await client.collections.import({
+  data: exportData,
+  strategy: 'update'
+});
+```
+
+<Note>
+  Importing collections requires superadmin authentication. The import
+  result includes per-collection status and migration IDs for tracking.
+</Note>
+
 ## Field Types
 
 | Type       | Description                  |

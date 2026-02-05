@@ -1,0 +1,143 @@
+---
+title: "Dashboard Service"
+description: "Retrieve dashboard statistics and metrics"
+---
+
+The Dashboard service provides statistics and metrics for monitoring your SnackBase instance. It's useful for building admin dashboards and monitoring systems.
+
+## Overview
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+});
+
+// Access the dashboard service
+const dashboard = client.dashboard;
+```
+
+<Note>
+  Dashboard statistics require superadmin authentication.
+</Note>
+
+## Get Statistics
+
+Retrieve comprehensive dashboard statistics:
+
+```ts
+const stats = await client.dashboard.getStats();
+```
+
+The response includes:
+
+```ts
+{
+  accounts: {
+    total: number;        // Total number of accounts
+    active: number;       // Currently active accounts
+    new_this_month: number;  // Accounts created this month
+  };
+  users: {
+    total: number;        // Total number of users
+    active: number;       // Currently active users
+    new_this_month: number;  // Users created this month
+  };
+  collections: {
+    total: number;        // Total number of collections
+    system: number;       // Built-in system collections
+    custom: number;       // User-created collections
+  };
+  records: {
+    total: number;        // Total records across all collections
+    created_today: number;   // Records created today
+    created_this_month: number;  // Records created this month
+  };
+  recent_activity: {
+    logins: number;       // Login count in last 24 hours
+    api_calls: number;    // API calls in last 24 hours
+    errors: number;       // Errors in last 24 hours
+  };
+  health: {
+    database_status: "healthy" | "degraded" | "down";
+    cache_status: "healthy" | "degraded" | "down";
+    uptime_seconds: number;
+  };
+}
+```
+
+## Use Cases
+
+### Admin Dashboard
+
+Display system statistics in an admin interface:
+
+```ts
+import { useQuery } from "@snackbase/sdk/react";
+
+function DashboardStats() {
+  const { data: stats, isLoading, error } = useQuery({
+    queryKey: ["dashboard-stats"],
+    queryFn: () => client.dashboard.getStats(),
+    refetchInterval: 60000, // Refresh every minute
+  });
+
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error loading stats</div>;
+
+  return (
+    <div>
+      <h2>System Overview</h2>
+      <div>Total Accounts: {stats.accounts.total}</div>
+      <div>Total Users: {stats.users.total}</div>
+      <div>Total Collections: {stats.collections.total}</div>
+      <div>Total Records: {stats.records.total}</div>
+      <div>Database Status: {stats.health.database_status}</div>
+    </div>
+  );
+}
+```
+
+### Health Monitoring
+
+Check system health programmatically:
+
+```ts
+async function checkSystemHealth() {
+  const stats = await client.dashboard.getStats();
+
+  const isHealthy = stats.health.database_status === "healthy" &&
+                   stats.health.cache_status === "healthy";
+
+  if (!isHealthy) {
+    console.warn("System health check failed:", stats.health);
+    // Trigger alert or notification
+  }
+
+  return isHealthy;
+}
+```
+
+### Activity Monitoring
+
+Monitor recent activity levels:
+
+```ts
+async function getActivityReport() {
+  const stats = await client.dashboard.getStats();
+
+  return {
+    logins: stats.recent_activity.logins,
+    apiCalls: stats.recent_activity.api_calls,
+    errors: stats.recent_activity.errors,
+    errorRate: (stats.recent_activity.errors / stats.recent_activity.api_calls * 100).toFixed(2)
+  };
+}
+```
+
+## Next Steps
+
+- **[Realtime](/sdk/js/realtime/overview)** - Monitor events in real-time
+- **[Audit Logs](/sdk/js/services/audit-logs)** - Track system activity
+- **[Admin Service](/sdk/js/services/admin)** - Manage system configuration

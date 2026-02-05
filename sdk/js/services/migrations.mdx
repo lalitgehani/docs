@@ -1,0 +1,150 @@
+---
+title: "Migrations Service"
+description: "View migration status and history"
+---
+
+The Migrations service provides read-only access to the database migration status and history. It's useful for monitoring the current state of your SnackBase deployment and tracking schema changes.
+
+## Overview
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+});
+
+// Access the migrations service
+const migrations = client.migrations;
+```
+
+<Note>
+  Migration operations require superadmin authentication. This service only provides
+  read access to migration information. Actual migrations are run server-side.
+</Note>
+
+## List Migrations
+
+Get all available Alembic migrations with their application status:
+
+```ts
+const response = await migrations.list();
+// Returns: { items: Migration[], total: number }
+```
+
+Each migration includes:
+
+```ts
+{
+  revision: string;       // Migration revision ID
+  name: string;           // Human-readable name
+  is_applied: boolean;    // Whether this migration has been applied
+  created_at: string;     // ISO timestamp
+}
+```
+
+## Get Current Migration
+
+Get the currently applied database revision:
+
+```ts
+const current = await migrations.getCurrent();
+
+if (current) {
+  console.log("Current revision:", current.revision);
+  console.log("Applied at:", current.created_at);
+} else {
+  console.log("No migrations applied yet");
+}
+```
+
+Returns `null` if no migrations have been applied yet.
+
+## Get Migration History
+
+Get the complete migration history in chronological order:
+
+```ts
+const history = await migrations.getHistory();
+// Returns: { items: Migration[], total: number }
+```
+
+This shows all migrations that have been applied to the database, in the order they were applied.
+
+## Use Cases
+
+### Version Check
+
+Check if the database is up to date:
+
+```ts
+async function isDatabaseUpToDate() {
+  const [allMigrations, current] = await Promise.all([
+    migrations.list(),
+    migrations.getCurrent()
+  ]);
+
+  const latestRevision = allMigrations.items[allMigrations.items.length - 1].revision;
+
+  if (!current) {
+    return false;
+  }
+
+  return current.revision === latestRevision;
+}
+```
+
+### Health Monitoring
+
+Include migration status in health checks:
+
+```ts
+async function getHealthStatus() {
+  const [current, history] = await Promise.all([
+    migrations.getCurrent(),
+    migrations.getHistory()
+  ]);
+
+  return {
+    hasMigrations: !!current,
+    migrationCount: history.total,
+    currentRevision: current?.revision || null,
+    lastMigrationAt: history.items[history.items.length - 1]?.created_at
+  };
+}
+```
+
+### Display Status
+
+Show migration information in an admin dashboard:
+
+```ts
+import { useQuery } from "@snackbase/sdk/react";
+
+function MigrationStatus() {
+  const { data: current, isLoading } = useQuery({
+    queryKey: ["current-migration"],
+    queryFn: () => migrations.getCurrent()
+  });
+
+  if (isLoading) return <div>Loading...</div>;
+
+  if (!current) {
+    return <div>Warning: No migrations applied</div>;
+  }
+
+  return (
+    <div>
+      <h3>Database Migration Status</h3>
+      <p>Revision: {current.revision}</p>
+      <p>Applied: {new Date(current.created_at).toLocaleString()}</p>
+    </div>
+  );
+}
+```
+
+## Next Steps
+
+- **[Dashboard](/sdk/js/services/dashboard)** - View system statistics
+- **[Collections](/sdk/js/services/collections)** - Manage database collections
+- **[Admin Service](/sdk/js/services/admin)** - Manage system configuration

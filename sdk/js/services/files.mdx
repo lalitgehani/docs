@@ -1,0 +1,198 @@
+---
+title: "Files Service"
+description: "Upload, download, and delete files"
+---
+
+The Files service handles file uploads, downloads, and deletion. It's useful for managing user-uploaded content, documents, images, and other binary data.
+
+## Overview
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+});
+
+// Access the files service
+const files = client.files;
+```
+
+## Upload Files
+
+Upload a file from a browser or React Native environment:
+
+```ts
+// From a file input
+const fileInput = document.querySelector("#file-input");
+const file = fileInput.files[0];
+
+const metadata = await client.files.upload(file);
+// Returns: { path: string, filename: string, size: number, content_type: string, ... }
+```
+
+Upload with custom options:
+
+```ts
+const metadata = await client.files.upload(file, {
+  filename: "custom-name.pdf",
+  contentType: "application/pdf"
+});
+```
+
+Upload a Blob directly:
+
+```ts
+const blob = new Blob(["Hello, world!"], { type: "text/plain" });
+const metadata = await client.files.upload(blob, {
+  filename: "hello.txt"
+});
+```
+
+## Download Files
+
+Get a download URL for a file:
+
+```ts
+const url = client.files.getDownloadUrl("/uploads/documents/report.pdf");
+
+// Use in an <img> tag
+const img = document.createElement("img");
+img.src = url;
+
+// Or open in new tab
+window.open(url, "_blank");
+
+// Or use with fetch
+const response = await fetch(url);
+const blob = await response.blob();
+```
+
+<Note>
+  Download URLs include authentication tokens and are temporary. Don't cache them
+  for extended periods.
+</Note>
+
+## Delete Files
+
+Delete a file from the server:
+
+```ts
+await client.files.delete("/uploads/documents/old-report.pdf");
+```
+
+## Complete Example
+
+File upload component with progress:
+
+```ts
+import { useState } from "react";
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com"
+});
+
+function FileUpload() {
+  const [uploading, setUploading] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState(null);
+
+  const handleFileChange = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const metadata = await client.files.upload(file);
+      setUploadedFile(metadata);
+    } catch (error) {
+      console.error("Upload failed:", error);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (uploadedFile) {
+      await client.files.delete(uploadedFile.path);
+      setUploadedFile(null);
+    }
+  };
+
+  return (
+    <div>
+      <input
+        type="file"
+        onChange={handleFileChange}
+        disabled={uploading}
+      />
+      {uploading && <p>Uploading...</p>}
+      {uploadedFile && (
+        <div>
+          <p>Uploaded: {uploadedFile.filename}</p>
+          <p>Size: {uploadedFile.size} bytes</p>
+          <a href={client.files.getDownloadUrl(uploadedFile.path)}>
+            Download
+          </a>
+          <button onClick={handleDelete}>Delete</button>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+## Integration with Records
+
+Store file metadata in records:
+
+```ts
+// 1. Upload the file
+const metadata = await client.files.upload(file);
+
+// 2. Create a record with the file reference
+const record = await client.records.create("documents", {
+  title: "My Document",
+  file_path: metadata.path,
+  file_name: metadata.filename,
+  file_size: metadata.size,
+  uploaded_at: new Date().toISOString()
+});
+```
+
+Retrieve and display files from records:
+
+```ts
+// Get records with files
+const documents = await client.records.list("documents");
+
+// Display each document
+documents.items.forEach(doc => {
+  const url = client.files.getDownloadUrl(doc.file_path);
+  console.log(`${doc.title}: ${url}`);
+});
+```
+
+## Error Handling
+
+Handle file upload errors:
+
+```ts
+try {
+  const metadata = await client.files.upload(file);
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.error("Invalid file:", error.fields);
+  } else if (error instanceof PayloadTooLargeError) {
+    console.error("File too large");
+  } else {
+    console.error("Upload failed:", error.message);
+  }
+}
+```
+
+## Next Steps
+
+- **[Records Service](/sdk/js/services/records)** - Store file metadata in records
+- **[Realtime](/sdk/js/realtime/overview)** - Get notified of new uploads
+- **[Error Handling](/sdk/js/errors/overview)** - Handle upload errors

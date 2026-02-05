@@ -1,0 +1,280 @@
+---
+title: "Invitations Service"
+description: "Invite users to join your account"
+---
+
+The Invitations service allows you to invite users to join your account and tracks the invitation status.
+
+## Overview
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+});
+
+// Access the invitations service
+const invitations = client.invitations;
+```
+
+## List Invitations
+
+Get all invitations for the current account:
+
+```ts
+const invitations = await client.invitations.list();
+```
+
+With pagination:
+
+```ts
+const invitations = await client.invitations.list({
+  limit: 20,
+  skip: 0
+});
+```
+
+## Create an Invitation
+
+Invite a new user to join your account:
+
+```ts
+const invitation = await client.invitations.create({
+  email: "user@example.com",
+  role_id: "role-id"
+});
+```
+
+The response includes:
+
+```ts
+{
+  "id": "invitation-id",
+  "email": "user@example.com",
+  "role_id": "role-id",
+  "status": "pending",
+  "token": "unique-invitation-token",
+  "expires_at": "2024-02-15T00:00:00Z",
+  "created_at": "2024-01-15T00:00:00Z"
+}
+```
+
+## Resend an Invitation
+
+Resend the invitation email if it wasn't received:
+
+```ts
+await client.invitations.resend("invitation-id");
+```
+
+## Get Public Invitation Details
+
+Retrieve invitation details using the token (no authentication required):
+
+```ts
+const invitation = await client.invitations.getPublic("invitation-token");
+```
+
+Useful for invitation acceptance pages where the user isn't authenticated yet.
+
+## Accept an Invitation
+
+Accept an invitation and create a user account:
+
+```ts
+const authResponse = await client.invitations.accept(
+  "invitation-token",
+  "new-password"
+);
+```
+
+The response includes authentication tokens and the created user:
+
+```ts
+{
+  "user": { ... },
+  "account": { ... },
+  "token": "access-token",
+  "refresh_token": "refresh-token",
+  "expires_at": "2024-01-16T00:00:00Z"
+}
+
+// The auth state is automatically stored
+console.log(client.isAuthenticated); // true
+console.log(client.user); // User object
+```
+
+## Cancel an Invitation
+
+Cancel a pending invitation:
+
+```ts
+await client.invitations.cancel("invitation-id");
+```
+
+## Complete Example
+
+Invitation management component:
+
+```ts
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@snackbase/sdk/react";
+
+function InvitationManager() {
+  const queryClient = useQueryClient();
+  const [email, setEmail] = useState("");
+
+  const { data: invitations, isLoading } = useQuery({
+    queryKey: ["invitations"],
+    queryFn: () => client.invitations.list()
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data) => client.invitations.create(data),
+    onSuccess: () => {
+      setEmail("");
+      queryClient.invalidateQueries(["invitations"]);
+    }
+  });
+
+  const resendMutation = useMutation({
+    mutationFn: (id) => client.invitations.resend(id)
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: (id) => client.invitations.cancel(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries(["invitations"]);
+    }
+  });
+
+  const handleCreate = (e) => {
+    e.preventDefault();
+    createMutation.mutate({ email, role_id: "default-role" });
+  };
+
+  if (isLoading) return <div>Loading...</div>;
+
+  return (
+    <div>
+      <h2>User Invitations</h2>
+
+      <form onSubmit={handleCreate}>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="user@example.com"
+          required
+        />
+        <button type="submit" disabled={createMutation.isPending}>
+          Send Invitation
+        </button>
+      </form>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th>Status</th>
+            <th>Expires</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {invitations?.map(inv => (
+            <tr key={inv.id}>
+              <td>{inv.email}</td>
+              <td>{inv.status}</td>
+              <td>{new Date(inv.expires_at).toLocaleDateString()}</td>
+              <td>
+                {inv.status === "pending" && (
+                  <>
+                    <button
+                      onClick={() => resendMutation.mutate(inv.id)}
+                      disabled={resendMutation.isPending}
+                    >
+                      Resend
+                    </button>
+                    <button
+                      onClick={() => cancelMutation.mutate(inv.id)}
+                      disabled={cancelMutation.isPending}
+                    >
+                      Cancel
+                    </button>
+                  </>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+```
+
+## Invitation Acceptance Flow
+
+For public invitation acceptance pages:
+
+```ts
+import { useEffect, useState } from "react";
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com"
+});
+
+function InvitationAcceptPage({ token }) {
+  const [invitation, setInvitation] = useState(null);
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    client.invitations.getPublic(token)
+      .then(setInvitation)
+      .catch(setError);
+  }, [token]);
+
+  const handleAccept = async (e) => {
+    e.preventDefault();
+    try {
+      await client.invitations.accept(token, password);
+      // User is now logged in, redirect to dashboard
+      window.location.href = "/dashboard";
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  if (!invitation) return <div>Loading...</div>;
+  if (error) return <div>Error: {error}</div>;
+
+  return (
+    <div>
+      <h1>Accept Invitation</h1>
+      <p>You've been invited to join {invitation.account_name}</p>
+
+      <form onSubmit={handleAccept}>
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Create a password"
+          required
+          minLength={8}
+        />
+        <button type="submit">Accept & Create Account</button>
+      </form>
+    </div>
+  );
+}
+```
+
+## Next Steps
+
+- **[Users Service](/sdk/js/services/users)** - Manage user accounts
+- **[Roles Service](/sdk/js/services/roles)** - Assign roles to invited users
+- **[Groups Service](/sdk/js/services/groups)** - Add users to groups
