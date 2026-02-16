@@ -1,0 +1,259 @@
+---
+title: "New in v0.3.0"
+description: "Authentication enhancements in SDK v0.3.0"
+---
+
+SDK v0.3.0 introduces several authentication enhancements including token type detection, authentication method detection, and a new API key format.
+
+## What's New
+
+### Token Type Detection
+
+A new `TokenType` enum helps you identify the type of authentication token being used:
+
+```typescript
+import { TokenType } from '@snackbase/sdk';
+
+enum TokenType {
+  ACCESS = 'access',
+  REFRESH = 'refresh',
+  API_KEY = 'api_key',
+}
+```
+
+### User Token Type Field
+
+The `User` interface now includes a `token_type` field that indicates the current authentication method:
+
+```typescript
+interface User {
+  id: string;
+  email: string;
+  // ... other fields
+  token_type?: TokenType; // NEW: Type of token being used
+}
+```
+
+### Authentication Method Detection
+
+New convenience methods on the `AuthService` make it easy to detect the current authentication method:
+
+```typescript
+const auth = client.auth;
+
+// Check if current session is a superadmin
+if (auth.isSuperadmin()) {
+  console.log('Logged in as superadmin');
+}
+
+// Check if authenticated via API key
+if (auth.isApiKeySession()) {
+  console.log('Using API key authentication');
+}
+
+// Check if authenticated via access token
+if (auth.isAccessTokenSession()) {
+  console.log('Using access token authentication');
+}
+```
+
+### New Error Types
+
+Two new error types provide better error handling:
+
+```typescript
+import { ApiKeyRestrictedError, EmailVerificationRequiredError } from '@snackbase/sdk';
+
+try {
+  await client.records.create('posts', data);
+} catch (error) {
+  if (error instanceof ApiKeyRestrictedError) {
+    // API key doesn't have permission for this operation
+    console.error('API key is restricted from this action');
+  } else if (error instanceof EmailVerificationRequiredError) {
+    // User must verify email before proceeding
+    console.error('Please verify your email first');
+  }
+}
+```
+
+### API Key Format Change
+
+API keys now use a three-part format for better security:
+
+**Old Format (still supported)**:
+```
+sb_ak_base64payload
+```
+
+**New Format (v0.3.0+)**:
+```
+sb_ak.payload.signature
+```
+
+The new format provides:
+- **Clearer structure** - Three distinct parts separated by dots
+- **Embedded signature** - Cryptographic signature for verification
+- **Better security** - Easier to validate and verify keys
+
+<Note>
+Old API keys continue to work. The new format is used when creating new API keys in v0.3.0+.
+</Note>
+
+## Migration Guide
+
+If you're upgrading from an earlier version, here's what you need to know:
+
+### No Breaking Changes
+
+All existing code continues to work. The new features are additive and don't change existing behavior.
+
+### Optional: Use New Detection Methods
+
+You can optionally use the new authentication method detection in your code:
+
+```typescript
+// Before (v0.2.x)
+if (client.user && client.apiKey) {
+  // Has both user and API key
+}
+
+// After (v0.3.0) - More explicit
+if (client.auth.isApiKeySession()) {
+  // Definitely using API key auth
+} else if (client.isAuthenticated) {
+  // Using user authentication
+}
+```
+
+### Handle New Error Types
+
+Add handlers for the new error types where appropriate:
+
+```typescript
+try {
+  await client.records.create('posts', data);
+} catch (error) {
+  if (error instanceof ApiKeyRestrictedError) {
+    // Handle restricted API key
+    alert('Your API key does not have permission to create posts');
+  } else if (error instanceof EmailVerificationRequiredError) {
+    // Handle unverified email
+    await client.auth.sendVerificationEmail();
+    alert('Please check your email for a verification link');
+  } else {
+    // Handle other errors as before
+    throw error;
+  }
+}
+```
+
+### Check Token Type When Needed
+
+If you need to know the token type:
+
+```typescript
+const user = client.user;
+if (user) {
+  switch (user.token_type) {
+    case TokenType.ACCESS:
+      console.log('Authenticated with access token');
+      break;
+    case TokenType.REFRESH:
+      console.log('Authenticated with refresh token');
+      break;
+    case TokenType.API_KEY:
+      console.log('Authenticated with API key');
+      break;
+  }
+}
+```
+
+## API Key Creation
+
+When creating new API keys with the SDK v0.3.0+, they will use the new format:
+
+```typescript
+const apiKey = await client.apiKeys.create({
+  name: 'Production API Key',
+});
+
+console.log(apiKey.key); // sb_ak.payload.signature (new format)
+```
+
+## Examples
+
+### Conditional Logic Based on Auth Type
+
+```typescript
+// Show different UI based on authentication method
+if (client.auth.isSuperadmin()) {
+  // Show superadmin controls
+  renderSuperAdminPanel();
+} else if (client.auth.isApiKeySession()) {
+  // API keys have limited permissions
+  renderApiKeyWarning();
+  renderLimitedControls();
+} else {
+  // Regular user session
+  renderUserPanel();
+}
+```
+
+### Email Verification Flow
+
+```typescript
+import { EmailVerificationRequiredError } from '@snackbase/sdk';
+
+async function createPost(data) {
+  try {
+    return await client.records.create('posts', data);
+  } catch (error) {
+    if (error instanceof EmailVerificationRequiredError) {
+      // Send verification email
+      await client.auth.sendVerificationEmail();
+
+      // Show message to user
+      showVerificationModal();
+      return null;
+    }
+    throw error;
+  }
+}
+```
+
+### API Key Permission Check
+
+```typescript
+import { ApiKeyRestrictedError } from '@snackbase/sdk';
+
+async function adminOperation() {
+  try {
+    return await client.accounts.delete(accountId);
+  } catch (error) {
+    if (error instanceof ApiKeyRestrictedError) {
+      console.error('This operation requires a user session or admin API key');
+      return null;
+    }
+    throw error;
+  }
+}
+```
+
+## Summary of Changes
+
+| Feature | Type | Description |
+|---------|------|-------------|
+| `TokenType` enum | New | Enum for token types: ACCESS, REFRESH, API_KEY |
+| `User.token_type` field | New | Field indicating current authentication method |
+| `isSuperadmin()` method | New | Check if superadmin session |
+| `isApiKeySession()` method | New | Check if API key authentication |
+| `isAccessTokenSession()` method | New | Check if access token authentication |
+| `ApiKeyRestrictedError` | New | Error for restricted API key operations |
+| `EmailVerificationRequiredError` | New | Error for unverified email requirement |
+| API key format | Changed | New 3-part format: `sb_ak.payload.signature` |
+
+## Next Steps
+
+- **[Error Handling](/sdk/js/errors/overview)** - Learn about all error types
+- **[Authentication Overview](/sdk/js/auth/overview)** - Complete authentication guide

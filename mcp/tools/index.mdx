@@ -1,0 +1,1118 @@
+---
+title: "Tools Reference"
+description: "Complete reference for all SnackBase MCP tools"
+---
+
+The SnackBase MCP server provides 15 tools covering all major SnackBase operations. Each tool supports multiple actions for CRUD operations and queries.
+
+## Tool Overview
+
+| Tool | Actions | Description |
+|------|---------|-------------|
+| [`snackbase_collections`](#collections) | list, list_names, get, create, update, delete, export, import | Manage collection schemas |
+| [`snackbase_records`](#records) | list, get, create, update, patch, delete | CRUD operations on records |
+| [`snackbase_collection_rules`](#collection-rules) | get, update, validate, test | Configure access control |
+| [`snackbase_users`](#users) | list, get, create, update, delete, set_password, verify_email | User management |
+| [`snackbase_groups`](#groups) | list, get, create, update, delete, add_member, remove_member | Group management |
+| [`snackbase_roles`](#roles) | list, get, create, update, delete | Role-based access control |
+| [`snackbase_accounts`](#accounts) | list, get, create, update, delete, get_users | Multi-tenant accounts |
+| [`snackbase_invitations`](#invitations) | list, create, resend, cancel | User invitations |
+| [`snackbase_api_keys`](#api-keys) | list, create, revoke | API key management |
+| [`snackbase_admin`](#admin) | get_stats, get_recent, list_system, list_account, get_values, update_values, create, list_providers, test_connection | Admin operations |
+| [`snackbase_dashboard`](#dashboard) | get_stats | Dashboard metrics |
+| [`snackbase_audit_logs`](#audit-logs) | list, get, export | Audit log access |
+| [`snackbase_email_templates`](#email-templates) | list, get, update, render, send_test, list_logs | Email management |
+| [`snackbase_macros`](#macros) | list, get, create, update, delete, test | SQL macro operations |
+| [`snackbase_migrations`](#migrations) | list, get_current, get_history | Migration status |
+
+---
+
+## Collections
+
+**Tool Name**: `snackbase_collections`
+
+Manage collection schemas and their structure.
+
+### Actions
+
+#### `list`
+List all collections in the current account.
+
+```json
+{
+  "action": "list",
+  "page": 1,
+  "page_size": 30
+}
+```
+
+#### `list_names`
+Get a simplified list of collection names.
+
+```json
+{
+  "action": "list_names"
+}
+```
+
+#### `get`
+Get details of a specific collection by ID.
+
+```json
+{
+  "action": "get",
+  "collection_id": "collection-id"
+}
+```
+
+#### `create`
+Create a new collection with defined fields.
+
+```json
+{
+  "action": "create",
+  "name": "posts",
+  "fields": [
+    {
+      "name": "title",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "content",
+      "type": "text"
+    },
+    {
+      "name": "published",
+      "type": "boolean",
+      "default": false
+    }
+  ],
+  "list_rule": "user_id = {user_id}",
+  "view_rule": "user_id = {user_id}",
+  "create_rule": "user_id = {user_id}",
+  "update_rule": "user_id = {user_id}",
+  "delete_rule": "user_id = {user_id}"
+}
+```
+
+#### `update`
+Update an existing collection's schema.
+
+```json
+{
+  "action": "update",
+  "collection_id": "collection-id",
+  "fields": [...]
+}
+```
+
+#### `delete`
+Delete a collection and all its records.
+
+```json
+{
+  "action": "delete",
+  "collection_id": "collection-id"
+}
+```
+
+---
+
+## Records
+
+**Tool Name**: `snackbase_records`
+
+CRUD operations on collection records.
+
+### Actions
+
+#### `list`
+List records from a collection with filtering and pagination.
+
+```json
+{
+  "action": "list",
+  "collection": "posts",
+  "filter": { "status": "published" },
+  "sort": "-created_at",
+  "limit": 10,
+  "skip": 0,
+  "fields": ["id", "title", "created_at"],
+  "expand": ["author"]
+}
+```
+
+#### `get`
+Get a single record by ID.
+
+```json
+{
+  "action": "get",
+  "collection": "posts",
+  "record_id": "record-id",
+  "expand": ["author", "comments"]
+}
+```
+
+#### `create`
+Create a new record.
+
+```json
+{
+  "action": "create",
+  "collection": "posts",
+  "data": {
+    "title": "My Post",
+    "content": "Post content",
+    "status": "published"
+  }
+}
+```
+
+#### `update`
+Full update of a record (replaces all fields).
+
+```json
+{
+  "action": "update",
+  "collection": "posts",
+  "record_id": "record-id",
+  "data": {
+    "title": "Updated Title",
+    "content": "Updated content"
+  }
+}
+```
+
+#### `patch`
+Partial update of a record (only updates specified fields).
+
+```json
+{
+  "action": "patch",
+  "collection": "posts",
+  "record_id": "record-id",
+  "data": {
+    "title": "New Title Only"
+  }
+}
+```
+
+#### `delete`
+Delete a record.
+
+```json
+{
+  "action": "delete",
+  "collection": "posts",
+  "record_id": "record-id"
+}
+```
+
+---
+
+## Collection Rules
+
+**Tool Name**: `snackbase_collection_rules`
+
+Configure access control rules for collections.
+
+### Actions
+
+#### `get`
+Get access rules for a collection.
+
+```json
+{
+  "action": "get",
+  "collection_name": "posts"
+}
+```
+
+#### `update`
+Update access rules for a collection.
+
+```json
+{
+  "action": "update",
+  "collection_name": "posts",
+  "data": {
+    "list_rule": "status = 'published' or user_id = {user_id}",
+    "view_rule": "user_id = {user_id}",
+    "create_rule": "user_id = {user_id}",
+    "update_rule": "user_id = {user_id}",
+    "delete_rule": "user_id = {user_id}"
+  }
+}
+```
+
+#### `validate`
+Validate a rule expression.
+
+```json
+{
+  "action": "validate",
+  "rule": "user_id = {user_id}",
+  "operation": "list",
+  "collection_fields": ["user_id", "title", "content"]
+}
+```
+
+#### `test`
+Test a rule with sample context.
+
+```json
+{
+  "action": "test",
+  "rule": "user_id = {user_id}",
+  "context": {
+    "user_id": "user-123"
+  }
+}
+```
+
+---
+
+## Users
+
+**Tool Name**: `snackbase_users`
+
+Manage user accounts and authentication.
+
+### Actions
+
+#### `list`
+List users with filtering and pagination.
+
+```json
+{
+  "action": "list",
+  "search": "john",
+  "is_active": true,
+  "sort_by": "created_at",
+  "sort_order": "desc",
+  "page": 1,
+  "page_size": 30
+}
+```
+
+#### `get`
+Get a specific user by ID.
+
+```json
+{
+  "action": "get",
+  "user_id": "user-id"
+}
+```
+
+#### `create`
+Create a new user.
+
+```json
+{
+  "action": "create",
+  "email": "user@example.com",
+  "account_id": "account-id",
+  "password": "SecurePassword123!",
+  "role": "member"
+}
+```
+
+#### `update`
+Update user details.
+
+```json
+{
+  "action": "update",
+  "user_id": "user-id",
+  "is_active": true,
+  "role": "admin"
+}
+```
+
+#### `delete`
+Deactivate a user.
+
+```json
+{
+  "action": "delete",
+  "user_id": "user-id"
+}
+```
+
+#### `set_password`
+Set a user's password (admin operation).
+
+```json
+{
+  "action": "set_password",
+  "user_id": "user-id",
+  "password": "NewPassword123!"
+}
+```
+
+#### `verify_email`
+Manually verify a user's email.
+
+```json
+{
+  "action": "verify_email",
+  "user_id": "user-id"
+}
+```
+
+---
+
+## Groups
+
+**Tool Name**: `snackbase_groups`
+
+Manage groups for team-based access control.
+
+### Actions
+
+#### `list`
+List all groups.
+
+```json
+{
+  "action": "list",
+  "search": "engineering",
+  "page": 1,
+  "page_size": 30
+}
+```
+
+#### `get`
+Get group details.
+
+```json
+{
+  "action": "get",
+  "group_id": "group-id"
+}
+```
+
+#### `create`
+Create a new group.
+
+```json
+{
+  "action": "create",
+  "name": "Engineering",
+  "description": "Engineering team members"
+}
+```
+
+#### `update`
+Update group details.
+
+```json
+{
+  "action": "update",
+  "group_id": "group-id",
+  "name": "Engineering Team",
+  "description": "All engineering staff"
+}
+```
+
+#### `delete`
+Delete a group.
+
+```json
+{
+  "action": "delete",
+  "group_id": "group-id"
+}
+```
+
+#### `add_member`
+Add a user to a group.
+
+```json
+{
+  "action": "add_member",
+  "group_id": "group-id",
+  "user_id": "user-id"
+}
+```
+
+#### `remove_member`
+Remove a user from a group.
+
+```json
+{
+  "action": "remove_member",
+  "group_id": "group-id",
+  "user_id": "user-id"
+}
+```
+
+---
+
+## Roles
+
+**Tool Name**: `snackbase_roles`
+
+Manage roles for role-based access control.
+
+### Actions
+
+#### `list`
+List all roles.
+
+```json
+{
+  "action": "list"
+}
+```
+
+#### `get`
+Get role details.
+
+```json
+{
+  "action": "get",
+  "role_id": "role-id"
+}
+```
+
+#### `create`
+Create a new role.
+
+```json
+{
+  "action": "create",
+  "name": "Editor",
+  "description": "Can edit but not delete content"
+}
+```
+
+#### `update`
+Update role details.
+
+```json
+{
+  "action": "update",
+  "role_id": "role-id",
+  "name": "Content Editor",
+  "description": "Editors with limited permissions"
+}
+```
+
+#### `delete`
+Delete a role.
+
+```json
+{
+  "action": "delete",
+  "role_id": "role-id"
+}
+```
+
+---
+
+## Accounts
+
+**Tool Name**: `snackbase_accounts`
+
+Manage multi-tenant accounts.
+
+### Actions
+
+#### `list`
+List all accounts.
+
+```json
+{
+  "action": "list",
+  "search": "acme",
+  "is_active": true,
+  "sort_by": "name",
+  "sort_order": "asc",
+  "page": 1,
+  "page_size": 30
+}
+```
+
+#### `get`
+Get account details.
+
+```json
+{
+  "action": "get",
+  "account_id": "account-id"
+}
+```
+
+#### `create`
+Create a new account.
+
+```json
+{
+  "action": "create",
+  "name": "Acme Corp",
+  "slug": "acme-corp"
+}
+```
+
+#### `update`
+Update account details.
+
+```json
+{
+  "action": "update",
+  "account_id": "account-id",
+  "name": "Acme Corporation"
+}
+```
+
+#### `delete`
+Delete an account.
+
+```json
+{
+  "action": "delete",
+  "account_id": "account-id"
+}
+```
+
+#### `get_users`
+Get all users in an account.
+
+```json
+{
+  "action": "get_users",
+  "account_id": "account-id",
+  "page": 1,
+  "page_size": 30
+}
+```
+
+---
+
+## Invitations
+
+**Tool Name**: `snackbase_invitations`
+
+Manage user invitations.
+
+### Actions
+
+#### `list`
+List all invitations.
+
+```json
+{
+  "action": "list",
+  "status": "pending",
+  "page": 1,
+  "page_size": 30
+}
+```
+
+#### `create`
+Create a new invitation.
+
+```json
+{
+  "action": "create",
+  "email": "newuser@example.com",
+  "role_id": "role-id"
+}
+```
+
+#### `resend`
+Resend a pending invitation.
+
+```json
+{
+  "action": "resend",
+  "invitation_id": "invitation-id"
+}
+```
+
+#### `cancel`
+Cancel a pending invitation.
+
+```json
+{
+  "action": "cancel",
+  "invitation_id": "invitation-id"
+}
+```
+
+---
+
+## API Keys
+
+**Tool Name**: `snackbase_api_keys`
+
+Manage API keys for programmatic access.
+
+### Actions
+
+#### `list`
+List all API keys.
+
+```json
+{
+  "action": "list"
+}
+```
+
+#### `create`
+Create a new API key.
+
+```json
+{
+  "action": "create",
+  "name": "Production API Key",
+  "expires_at": "2026-12-31T23:59:59Z"
+}
+```
+
+#### `revoke`
+Revoke an API key.
+
+```json
+{
+  "action": "revoke",
+  "key_id": "key-id"
+}
+```
+
+---
+
+## Admin
+
+**Tool Name**: `snackbase_admin`
+
+Admin operations for configurations and providers.
+
+### Actions
+
+#### `get_stats`
+Get admin statistics.
+
+```json
+{
+  "action": "get_stats"
+}
+```
+
+#### `get_recent`
+Get recent configurations.
+
+```json
+{
+  "action": "get_recent",
+  "limit": 10
+}
+```
+
+#### `list_system`
+List system-level configurations.
+
+```json
+{
+  "action": "list_system"
+}
+```
+
+#### `list_account`
+List account-level configurations.
+
+```json
+{
+  "action": "list_account",
+  "account_id": "account-id"
+}
+```
+
+#### `get_values`
+Get configuration values.
+
+```json
+{
+  "action": "get_values",
+  "config_id": "config-id"
+}
+```
+
+#### `update_values`
+Update configuration values.
+
+```json
+{
+  "action": "update_values",
+  "config_id": "config-id",
+  "values": {
+    "smtp_host": "smtp.example.com",
+    "smtp_port": 587
+  }
+}
+```
+
+#### `create`
+Create a new configuration.
+
+```json
+{
+  "action": "create",
+  "name": "Custom Provider",
+  "provider_name": "custom",
+  "values": {...}
+}
+```
+
+#### `list_providers`
+List available providers.
+
+```json
+{
+  "action": "list_providers",
+  "category": "email"
+}
+```
+
+#### `test_connection`
+Test a provider connection.
+
+```json
+{
+  "action": "test_connection",
+  "config": {
+    "provider": "smtp",
+    "host": "smtp.example.com",
+    "port": 587
+  }
+}
+```
+
+---
+
+## Dashboard
+
+**Tool Name**: `snackbase_dashboard`
+
+Get dashboard statistics and metrics.
+
+### Actions
+
+#### `get_stats`
+Get dashboard statistics.
+
+```json
+{
+  "action": "get_stats"
+}
+```
+
+Returns:
+- Total accounts
+- Total users
+- Total collections
+- Total records
+- Recent activity
+- System health
+
+---
+
+## Audit Logs
+
+**Tool Name**: `snackbase_audit_logs`
+
+Query and export audit logs.
+
+### Actions
+
+#### `list`
+List audit log entries.
+
+```json
+{
+  "action": "list",
+  "user_id": "user-id",
+  "table_name": "users",
+  "operation": "create",
+  "from_date": "2026-01-01T00:00:00Z",
+  "to_date": "2026-01-31T23:59:59Z",
+  "page": 1,
+  "limit": 50
+}
+```
+
+#### `get`
+Get a specific audit log entry.
+
+```json
+{
+  "action": "get",
+  "log_id": "log-id"
+}
+```
+
+#### `export`
+Export audit logs.
+
+```json
+{
+  "action": "export",
+  "format": "json",
+  "from_date": "2026-01-01T00:00:00Z",
+  "to_date": "2026-01-31T23:59:59Z"
+}
+```
+
+---
+
+## Email Templates
+
+**Tool Name**: `snackbase_email_templates`
+
+Manage email templates.
+
+### Actions
+
+#### `list`
+List email templates.
+
+```json
+{
+  "action": "list",
+  "template_type": "welcome",
+  "locale": "en"
+}
+```
+
+#### `get`
+Get email template details.
+
+```json
+{
+  "action": "get",
+  "template_id": "template-id"
+}
+```
+
+#### `update`
+Update email template.
+
+```json
+{
+  "action": "update",
+  "template_id": "template-id",
+  "subject": "Welcome to {{app_name}}!",
+  "html_body": "<html>...</html>",
+  "text_body": "Plain text version",
+  "enabled": true
+}
+```
+
+#### `render`
+Render template with variables.
+
+```json
+{
+  "action": "render",
+  "template_type": "welcome",
+  "locale": "en",
+  "variables": {
+    "user_name": "John",
+    "app_name": "MyApp"
+  }
+}
+```
+
+#### `send_test`
+Send a test email.
+
+```json
+{
+  "action": "send_test",
+  "template_id": "template-id",
+  "recipient_email": "test@example.com",
+  "variables": {...}
+}
+```
+
+#### `list_logs`
+List email send logs.
+
+```json
+{
+  "action": "list_logs",
+  "start_date": "2026-01-01",
+  "end_date": "2026-01-31"
+}
+```
+
+---
+
+## Macros
+
+**Tool Name**: `snackbase_macros`
+
+Manage SQL macros for complex queries.
+
+### Actions
+
+#### `list`
+List all macros.
+
+```json
+{
+  "action": "list"
+}
+```
+
+#### `get`
+Get macro details.
+
+```json
+{
+  "action": "get",
+  "macro_id": "macro-id"
+}
+```
+
+#### `create`
+Create a new macro.
+
+```json
+{
+  "action": "create",
+  "name": "active_users",
+  "description": "Get active users in date range",
+  "sql_query": "SELECT * FROM users WHERE last_login >= {start_date} AND last_login < {end_date}",
+  "parameters": ["start_date", "end_date"]
+}
+```
+
+#### `update`
+Update macro.
+
+```json
+{
+  "action": "update",
+  "macro_id": "macro-id",
+  "sql_query": "SELECT * FROM users WHERE last_login >= {start_date}",
+  "parameters": ["start_date"]
+}
+```
+
+#### `delete`
+Delete macro.
+
+```json
+{
+  "action": "delete",
+  "macro_id": "macro-id"
+}
+```
+
+#### `test`
+Test macro with parameters.
+
+```json
+{
+  "action": "test",
+  "macro_id": "macro-id",
+  "params": {
+    "start_date": "2026-01-01",
+    "end_date": "2026-02-01"
+  }
+}
+```
+
+---
+
+## Migrations
+
+**Tool Name**: `snackbase_migrations`
+
+Query migration status and history.
+
+### Actions
+
+#### `list`
+List all migrations.
+
+```json
+{
+  "action": "list"
+}
+```
+
+#### `get_current`
+Get current migration version.
+
+```json
+{
+  "action": "get_current"
+}
+```
+
+#### `get_history`
+Get migration history.
+
+```json
+{
+  "action": "get_history"
+}
+```
+
+<Note>
+The MCP server provides read-only access to migrations. To apply migrations, use the SnackBase CLI: `snackbase migrate up`
+</Note>
+
+---
+
+## Response Format
+
+All MCP tools return responses in this format:
+
+```json
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{...json data...}"
+    }
+  ]
+}
+```
+
+The text field contains a JSON string with the tool's response data.
+
+## Error Handling
+
+Errors are returned in the same format with an error message:
+
+```json
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"error\": \"Error message here\"}"
+    }
+  ],
+  "isError": true
+}
+```
+
+Common errors:
+- `400` - Bad request (invalid parameters)
+- `401` - Unauthorized (invalid API key)
+- `403` - Forbidden (insufficient permissions)
+- `404` - Not found
+- `422` - Validation error (invalid data)
+- `500+` - Server error
+
+## Next Steps
+
+- **[Integration Guide](/mcp/integration)** - Use these tools with AI assistants
+- **[Configuration](/mcp/configuration)** - Set up the MCP server

@@ -1,0 +1,123 @@
+---
+title: "MCP Server"
+description: "Integrate SnackBase with AI assistants using the Model Context Protocol (MCP)"
+---
+
+<CardGroup>
+<Card title="What is MCP?" icon="plug">
+The Model Context Protocol (MCP) is a standardized protocol for connecting AI assistants to external data sources and tools. SnackBase's MCP server allows AI models to directly interact with your SnackBase backend.
+</Card>
+<Card title="Key Features" icon="features">
+- 15+ tools for complete SnackBase operations
+- Type-safe data access
+- Secure API key authentication
+- Compatible with Claude, Cursor, and other MCP clients
+</Card>
+<Card title="Use Cases" icon="lightbulb">
+- Natural language database queries
+- AI-powered data analysis
+- Automated workflows
+- Developer productivity enhancement
+</Card>
+</CardGroup>
+
+---
+
+## Overview
+
+The SnackBase MCP server (`@snackbase/mcp`) exposes SnackBase's functionality as MCP tools that AI assistants can use. It provides a standardized interface for:
+
+- **Data Operations**: Query, create, update, and delete records in any collection
+- **User Management**: Manage users, groups, roles, and permissions
+- **Account Management**: Handle multi-tenant accounts and their configurations
+- **Admin Operations**: Access audit logs, email templates, macros, and more
+- **Monitoring**: Retrieve dashboard statistics and migration status
+
+## How It Works
+
+The MCP server runs as a separate process that communicates via stdio (standard input/output). AI assistants that support MCP can:
+
+1. Discover available tools through the MCP protocol
+2. Call tools with appropriate parameters
+3. Receive structured responses with data or errors
+
+<Steps>
+<Step title="AI Assistant sends a request">
+The AI assistant (e.g., Claude Code) sends a tool call to the MCP server via stdio.
+</Step>
+<Step title="MCP Server processes the request">
+The server authenticates using an API key, validates the request, and calls the appropriate SnackBase SDK service.
+</Step>
+<Step title="SnackBase API responds">
+The SDK communicates with your SnackBase backend via REST API.
+</Step>
+<Step title="Result returned to AI">
+The MCP server formats the response and returns it to the AI assistant, which can then use the information to help you.
+</Step>
+</Steps>
+
+## Available Tools
+
+The MCP server exposes 15 tools covering all major SnackBase operations:
+
+| Tool | Description |
+|------|-------------|
+| `snackbase_collections` | Manage collections (schemas) and their structure |
+| `snackbase_records` | CRUD operations on collection records |
+| `snackbase_collection_rules` | Configure access control rules for collections |
+| `snackbase_users` | User management and authentication |
+| `snackbase_groups` | Group management for team-based access |
+| `snackbase_roles` | Role-based access control |
+| `snackbase_accounts` | Multi-tenant account management |
+| `snackbase_invitations` | User invitation management |
+| `snackbase_api_keys` | API key creation and management |
+| `snackbase_admin` | Admin operations and configurations |
+| `snackbase_dashboard` | Dashboard statistics and metrics |
+| `snackbase_audit_logs` | Audit log access and export |
+| `snackbase_email_templates` | Email template management |
+| `snackbase_macros` | SQL macro operations |
+| `snackbase_migrations` | Migration status and history |
+
+<Note>
+The `auth` and `realtime` services are excluded from the MCP server because they don't fit the request/response model well. Authentication should be handled by your application, and realtime requires persistent connections.
+</Note>
+
+## Security Model
+
+The MCP server uses **API key authentication** exclusively:
+
+- **No user sessions**: MCP tools operate with the permissions of the API key
+- **Service account**: Use a dedicated service account with appropriate permissions
+- **Scoped access**: Create API keys with minimal required permissions
+- **Audit trail**: All MCP operations are logged in the audit logs
+
+<Warning>
+Never expose API keys with admin privileges to untrusted AI assistants. Always use the minimum required permissions for your use case.
+</Warning>
+
+## Architecture
+
+```
+┌─────────────────┐     stdio      ┌──────────────────┐
+│  AI Assistant   │◄──────────────►│  SnackBase MCP   │
+│  (Claude Code)  │                │     Server       │
+└─────────────────┘                └────────┬─────────┘
+                                             │
+                                             ▼
+                                    ┌──────────────────┐
+                                    │  @snackbase/sdk  │
+                                    └────────┬─────────┘
+                                             │
+                                             ▼
+                                    ┌──────────────────┐
+                                    │ SnackBase API    │
+                                    │  (Your Backend)  │
+                                    └──────────────────┘
+```
+
+## Next Steps
+
+- **[Installation](/mcp/installation)** - Set up the MCP server
+- **[Configuration](/mcp/configuration)** - Configure environment variables
+- **[Integration Guide](/mcp/integration)** - Use with Claude Code and other clients
+- **[Tools Reference](/mcp/tools)** - Detailed documentation for each tool

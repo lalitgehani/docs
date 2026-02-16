@@ -1,0 +1,191 @@
+---
+title: "Installation"
+description: "Install and set up the SnackBase MCP server"
+---
+
+The SnackBase MCP server can be installed via npm or used directly with npx.
+
+## Prerequisites
+
+Before installing the MCP server, ensure you have:
+
+- **Node.js 20+** installed
+- **A running SnackBase backend** (self-hosted or SnackBase Cloud)
+- **An API key** from your SnackBase instance
+
+## Installation Methods
+
+### Option 1: Global Installation (Recommended)
+
+Install the MCP server globally for system-wide availability:
+
+```bash
+npm install -g @snackbase/mcp
+# or
+pnpm add -g @snackbase/mcp
+# or
+yarn global add @snackbase/mcp
+```
+
+After installation, the `snackbase-mcp` command will be available:
+
+```bash
+snackbase-mcp
+```
+
+### Option 2: Local Installation
+
+Install in your project for development:
+
+```bash
+npm install @snackbase/mcp
+# or
+pnpm add @snackbase/mcp
+# or
+yarn add @snackbase/mcp
+```
+
+Run using npx:
+
+```bash
+npx snackbase-mcp
+```
+
+### Option 3: Docker (Coming Soon)
+
+```bash
+docker pull ghcr.io/lalitgehani/snackbase-mcp:latest
+```
+
+## Verification
+
+Verify the installation by running the server with the required environment variables:
+
+```bash
+export SNACKBASE_URL="https://your-snackbase-instance.com"
+export SNACKBASE_API_KEY="your-api-key-here"
+
+snackbase-mcp
+```
+
+You should see output like:
+
+```
+SnackBase MCP Server starting...
+SnackBase MCP Server running on stdio
+```
+
+<Note>
+The MCP server communicates via stdio, so you won't see an HTTP port. It's designed to be used by MCP clients like Claude Code or Cursor.
+</Note>
+
+## Creating an API Key
+
+You need an API key to use the MCP server. Here's how to create one:
+
+### Using the SnackBase Admin UI
+
+1. Navigate to your SnackBase Admin UI
+2. Go to **Settings** → **API Keys**
+3. Click **Create API Key**
+4. Give it a descriptive name (e.g., "MCP Server")
+5. Set appropriate permissions (see below)
+6. Copy the generated key
+
+### Using the SDK
+
+```typescript
+import { SnackBaseClient } from '@snackbase/sdk';
+
+const client = new SnackBaseClient({
+  baseUrl: 'https://your-snackbase-instance.com',
+  apiKey: 'your-admin-api-key', // Use an admin key to create new keys
+});
+
+const apiKey = await client.apiKeys.create({
+  name: 'MCP Server',
+  expiresAt: new Date('2026-12-31'), // Optional expiry
+});
+
+console.log(apiKey.key); // Save this securely!
+```
+
+## Recommended Permissions
+
+The permissions you grant to the MCP API key depend on your use case:
+
+### For General Development
+- Read access to all collections
+- Create/update/delete access to development collections
+- User management (if testing auth flows)
+
+### For Data Analysis Only
+- Read access to relevant collections
+- No write permissions
+
+### For Full Admin Access
+Use with caution! Only for trusted environments.
+
+<Warning>
+Never commit API keys to version control. Store them in environment variables or a secure secrets manager.
+</Warning>
+
+## Environment Variables
+
+The MCP server requires two environment variables:
+
+| Variable | Required | Description | Example |
+|----------|----------|-------------|---------|
+| `SNACKBASE_URL` | Yes | Your SnackBase backend URL | `https://api.snackbase.dev` |
+| `SNACKBASE_API_KEY` | Yes | Your API key for authentication | `sb_ak.xxx.xxx` |
+
+<Note>
+The API key format changed in v0.3.0 to use three parts: `sb_ak.<payload>.<signature>`. Old keys will continue to work, but new keys use this format.
+</Note>
+
+## Setting Environment Variables
+
+### On macOS/Linux
+
+Add to your shell profile (~/.zshrc, ~/.bashrc):
+
+```bash
+export SNACKBASE_URL="https://your-snackbase-instance.com"
+export SNACKBASE_API_KEY="sb_ak.xxx.xxx"
+```
+
+Then reload: `source ~/.zshrc`
+
+### On Windows (PowerShell)
+
+```powershell
+$env:SNACKBASE_URL="https://your-snackbase-instance.com"
+$env:SNACKBASE_API_KEY="sb_ak.xxx.xxx"
+```
+
+Or set permanently:
+
+```powershell
+[System.Environment]::SetEnvironmentVariable('SNACKBASE_URL', 'https://your-snackbase-instance.com', 'User')
+[System.Environment]::SetEnvironmentVariable('SNACKBASE_API_KEY', 'sb_ak.xxx.xxx', 'User')
+```
+
+### Using .env file (for development)
+
+Create a `.env` file in your project root:
+
+```env
+SNACKBASE_URL=https://your-snackbase-instance.com
+SNACKBASE_API_KEY=sb_ak.xxx.xxx
+```
+
+Then load it before running the server:
+
+```bash
+source .env && snackbase-mcp
+```
+
+## Next Steps
+
+- **[Configuration](/mcp/configuration)** - Advanced configuration options
+- **[Integration Guide](/mcp/integration)** - Use with Claude Code and other clients

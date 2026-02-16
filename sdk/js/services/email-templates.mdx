@@ -1,0 +1,252 @@
+---
+title: "Email Templates"
+description: "Manage email templates with the SnackBase JavaScript SDK"
+---
+
+The Email Templates service allows you to manage transactional email templates for user communications.
+
+## Overview
+
+Email templates in SnackBase are used for:
+- User welcome emails
+- Password reset emails
+- Email verification emails
+- Invitation emails
+- Custom notifications
+
+## Installation
+
+The Email Templates service is included in the `@snackbase/sdk` package:
+
+```bash
+npm install @snackbase/sdk
+```
+
+## Setup
+
+```typescript
+import { SnackBaseClient } from '@snackbase/sdk';
+
+const client = new SnackBaseClient({
+  baseUrl: 'https://api.snackbase.dev',
+  apiKey: 'your-api-key',
+});
+
+const emailTemplates = client.emailTemplates;
+```
+
+## Methods
+
+### list()
+
+List all email templates with optional filtering.
+
+```typescript
+const templates = await emailTemplates.list({
+  template_type: 'welcome',
+  locale: 'en',
+  enabled: true,
+  status: 'active',
+  start_date: '2026-01-01',
+  end_date: '2026-12-31',
+  page: 1,
+  limit: 30
+});
+```
+
+**Parameters:**
+- `template_type?: string` - Filter by template type
+- `locale?: string` - Filter by locale (e.g., 'en', 'es')
+- `enabled?: boolean` - Filter by enabled status
+- `status?: string` - Filter by status
+- `start_date?: string` - Filter by start date
+- `end_date?: string` - Filter by end date
+- `page?: number` - Page number
+- `limit?: number` - Results per page
+
+### get()
+
+Get a specific email template by ID.
+
+```typescript
+const template = await emailTemplates.get('template-id');
+```
+
+**Response:**
+```typescript
+{
+  id: string;
+  name: string;
+  template_type: string;
+  locale: string;
+  subject: string;
+  html_body: string;
+  text_body: string;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+```
+
+### update()
+
+Update an email template.
+
+```typescript
+const updated = await emailTemplates.update('template-id', {
+  subject: 'Welcome to {{app_name}}!',
+  html_body: '<html>...</html>',
+  text_body: 'Plain text version',
+  enabled: true
+});
+```
+
+### render()
+
+Render a template with variables (preview).
+
+```typescript
+const rendered = await emailTemplates.render({
+  template_type: 'welcome',
+  locale: 'en',
+  variables: {
+    user_name: 'John',
+    app_name: 'MyApp',
+    verification_url: 'https://example.com/verify'
+  },
+  subjectOverride: 'Custom Subject', // Optional
+  htmlBodyOverride: '<html>...</html>', // Optional
+  textBodyOverride: 'Plain text' // Optional
+});
+```
+
+### sendTest()
+
+Send a test email to verify the template.
+
+```typescript
+await emailTemplates.sendTest('template-id', {
+  recipient_email: 'test@example.com',
+  variables: {
+    user_name: 'Test User',
+    app_name: 'MyApp'
+  },
+  provider: 'smtp' // Optional: override email provider
+});
+```
+
+### listLogs()
+
+List email send logs.
+
+```typescript
+const logs = await emailTemplates.listLogs({
+  template_type: 'welcome',
+  locale: 'en',
+  account_id: 'account-id',
+  enabled: true,
+  status: 'sent',
+  start_date: '2026-01-01',
+  end_date: '2026-12-31',
+  page: 1,
+  limit: 30
+});
+```
+
+## Template Variables
+
+Templates use Mustache syntax for variables:
+
+```html
+<!DOCTYPE html>
+<html>
+<body>
+  <h1>Welcome, {{user_name}}!</h1>
+  <p>Thanks for joining {{app_name}}.</p>
+  <a href="{{verification_url}}">Verify your email</a>
+</body>
+</html>
+```
+
+## Built-in Template Types
+
+| Type | Purpose |
+|------|---------|
+| `welcome` | New user welcome email |
+| `verification` | Email verification |
+| `password_reset` | Password reset link |
+| `invitation` | User invitation |
+| `magic_link` | Magic link login |
+
+## Complete Example
+
+```typescript
+import { SnackBaseClient } from '@snackbase/sdk';
+
+const client = new SnackBaseClient({
+  baseUrl: 'https://api.snackbase.dev',
+  apiKey: 'your-api-key',
+});
+
+// List all welcome templates
+const welcomeTemplates = await client.emailTemplates.list({
+  template_type: 'welcome'
+});
+
+// Update a template
+const updated = await client.emailTemplates.update('template-id', {
+  subject: 'Welcome to {{app_name}}!',
+  html_body: `
+    <!DOCTYPE html>
+    <html>
+    <body>
+      <h1>Welcome, {{user_name}}!</h1>
+      <p>Thanks for joining {{app_name}}.</p>
+      <a href="{{verification_url}}">Verify your email</a>
+    </body>
+    </html>
+  `,
+  enabled: true
+});
+
+// Send a test email
+await client.emailTemplates.sendTest('template-id', {
+  recipient_email: 'test@example.com',
+  variables: {
+    user_name: 'John Doe',
+    app_name: 'MyApp',
+    verification_url: 'https://example.com/verify?token=abc123'
+  }
+});
+
+// Check send logs
+const logs = await client.emailTemplates.listLogs({
+  template_type: 'welcome',
+  limit: 10
+});
+```
+
+## Error Handling
+
+```typescript
+import { SnackBaseError } from '@snackbase/sdk';
+
+try {
+  await client.emailTemplates.sendTest('template-id', {
+    recipient_email: 'test@example.com',
+    variables: {}
+  });
+} catch (error) {
+  if (error instanceof SnackBaseError) {
+    console.error('Email send failed:', error.message);
+    if (error.statusCode === 422) {
+      console.error('Validation error:', error.fields);
+    }
+  }
+}
+```
+
+## Next Steps
+
+- **[Admin Service](/sdk/js/services/admin)** - Configure email providers
+- **[Error Handling](/sdk/js/errors/overview)** - Handle errors gracefully

@@ -99,6 +99,7 @@
             "group": "Authentication",
             "pages": [
               "sdk/js/auth/overview",
+              "sdk/js/auth/v0.3.0-changes",
               "sdk/js/auth/email-password",
               "sdk/js/auth/oauth",
               "sdk/js/auth/api-keys"
@@ -125,6 +126,7 @@
               "sdk/js/services/macros",
               "sdk/js/services/dashboard",
               "sdk/js/services/admin",
+              "sdk/js/services/email-templates",
               "sdk/js/services/files",
               "sdk/js/services/migrations"
             ]
@@ -160,17 +162,32 @@
           },
           {
             "group": "Error Handling",
-            "pages": [
-              "sdk/js/errors/overview",
-              "sdk/js/errors/types"
-            ]
+            "pages": ["sdk/js/errors/overview", "sdk/js/errors/types"]
           },
           {
             "group": "Reference",
+            "pages": ["sdk/js/reference/client", "sdk/js/reference/types"]
+          }
+        ]
+      },
+      {
+        "tab": "MCP Server",
+        "groups": [
+          {
+            "group": "Getting Started",
             "pages": [
-              "sdk/js/reference/client",
-              "sdk/js/reference/types"
+              "mcp/index",
+              "mcp/installation",
+              "mcp/configuration"
             ]
+          },
+          {
+            "group": "Integration",
+            "pages": ["mcp/integration"]
+          },
+          {
+            "group": "Tools Reference",
+            "pages": ["mcp/tools/index"]
           }
         ]
       },
@@ -376,6 +393,7 @@
         "href": "https://demo.snackbase.dev"
       },
       {
+        "type": "github",
         "label": "GitHub",
         "href": "https://github.com/lalitgehani/snackbase"
       }

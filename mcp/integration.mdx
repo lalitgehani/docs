@@ -1,0 +1,353 @@
+---
+title: "Integration Guide"
+description: "Use the SnackBase MCP server with Claude Code, Cursor, and other AI assistants"
+---
+
+This guide shows you how to integrate the SnackBase MCP server with various AI assistants and development tools.
+
+## Claude Code Integration
+
+Claude Code is a CLI tool that provides AI assistance directly in your terminal. It has native MCP support.
+
+### Setup
+
+1. **Install Claude Code** (if you haven't already):
+
+```bash
+npm install -g claude-code
+```
+
+2. **Configure MCP Server**:
+
+Edit `~/.claude/settings.json` (or `%APPDATA%\claude\settings.json` on Windows):
+
+```json
+{
+  "mcpServers": {
+    "snackbase": {
+      "command": "snackbase-mcp",
+      "args": [],
+      "env": {
+        "SNACKBASE_URL": "https://your-snackbase-instance.com",
+        "SNACKBASE_API_KEY": "your-api-key"
+      }
+    }
+  }
+}
+```
+
+3. **Restart Claude Code** to load the MCP server.
+
+### Usage Examples
+
+Once configured, you can interact with your SnackBase data naturally:
+
+```bash
+# List all users
+claude "List all users in my account"
+
+# Create a record
+claude "Create a new post in the posts collection with title 'Hello World'"
+
+# Query with filters
+claude "Show me all posts created in the last 7 days"
+
+# Get statistics
+claude "What are my dashboard statistics?"
+```
+
+### Common Workflows
+
+#### Data Exploration
+
+```
+You: "Show me the structure of my 'products' collection"
+Claude: [Uses snackbase_collections tool to get collection details]
+```
+
+#### Quick CRUD Operations
+
+```
+You: "Create a new user with email john@example.com"
+Claude: [Uses snackbase_users tool to create user]
+```
+
+#### Data Analysis
+
+```
+You: "What are the top 10 most viewed articles?"
+Claude: [Uses snackbase_records tool with sort and limit]
+```
+
+## Cursor IDE Integration
+
+Cursor is an AI-powered code editor with MCP support.
+
+### Setup
+
+1. **Install Cursor** from [cursor.sh](https://cursor.sh)
+
+2. **Configure MCP Server**:
+
+Edit `~/.cursor/settings.json` (or `%APPDATA%\cursor\settings.json` on Windows):
+
+```json
+{
+  "mcpServers": {
+    "snackbase": {
+      "command": "snackbase-mcp",
+      "args": [],
+      "env": {
+        "SNACKBASE_URL": "https://your-snackbase-instance.com",
+        "SNACKBASE_API_KEY": "your-api-key"
+      }
+    }
+  }
+}
+```
+
+3. **Restart Cursor** to load the MCP server.
+
+### Usage in Cursor
+
+- Use **Cmd/Ctrl + K** to open the AI chat
+- The AI will have access to your SnackBase data
+- Ask questions about your data naturally
+
+## Continue.dev Integration
+
+Continue.dev is a VS Code extension for AI code assistance.
+
+### Setup
+
+1. **Install Continue.dev** from the VS Code marketplace
+
+2. **Configure MCP Server**:
+
+Edit your VS Code settings.json or Continue config:
+
+```json
+{
+  "continue.mcpServers": {
+    "snackbase": {
+      "command": "snackbase-mcp",
+      "args": [],
+      "env": {
+        "SNACKBASE_URL": "https://your-snackbase-instance.com",
+        "SNACKBASE_API_KEY": "your-api-key"
+      }
+    }
+  }
+}
+```
+
+### Usage in VS Code
+
+- Use **Cmd/Ctrl + Shift + L** to open Continue
+- Ask questions about your SnackBase data
+- Get code suggestions based on your schema
+
+## Cline (Formerly Claude Dev) Integration
+
+Cline is an autonomous coding agent for VS Code.
+
+### Setup
+
+1. **Install Cline** from the VS Code marketplace
+
+2. **Configure MCP Server** in Cline's settings:
+
+```json
+{
+  "cline.mcpServers": {
+    "snackbase": {
+      "command": "snackbase-mcp",
+      "args": [],
+      "env": {
+        "SNACKBASE_URL": "https://your-snackbase-instance.com",
+        "SNACKBASE_API_KEY": "your-api-key"
+      }
+    }
+  }
+}
+```
+
+## Custom Integration
+
+If you want to build your own MCP client, you can use the MCP SDK directly:
+
+### TypeScript Example
+
+```typescript
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+
+async function main() {
+  // Create transport to the MCP server
+  const transport = new StdioClientTransport({
+    command: 'snackbase-mcp',
+    args: [],
+    env: {
+      SNACKBASE_URL: 'https://your-snackbase-instance.com',
+      SNACKBASE_API_KEY: 'your-api-key',
+    },
+  });
+
+  // Create and connect client
+  const client = new Client({
+    name: 'my-mcp-client',
+    version: '1.0.0',
+  });
+
+  await client.connect(transport);
+
+  // List available tools
+  const tools = await client.listTools();
+  console.log('Available tools:', tools);
+
+  // Call a tool
+  const result = await client.callTool({
+    name: 'snackbase_collections',
+    arguments: {
+      action: 'list',
+    },
+  });
+
+  console.log('Collections:', result);
+}
+```
+
+### Python Example
+
+```python
+import asyncio
+import subprocess
+import json
+
+async def call_mcp_tool(tool_name, arguments):
+    """Call an MCP tool via stdio"""
+    process = subprocess.Popen(
+        ['snackbase-mcp'],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env={
+            'SNACKBASE_URL': 'https://your-snackbase-instance.com',
+            'SNACKBASE_API_KEY': 'your-api-key',
+        }
+    )
+
+    # Send request
+    request = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {
+            "name": tool_name,
+            "arguments": arguments
+        }
+    }
+
+    process.stdin.write(json.dumps(request) + '\n')
+    process.stdin.flush()
+
+    # Read response
+    response = json.loads(process.stdout.readline())
+    return response
+
+# Usage
+asyncio.run(call_mcp_tool('snackbase_collections', {'action': 'list'}))
+```
+
+## Common Patterns
+
+### Natural Language Queries
+
+Transform natural language into SnackBase queries:
+
+```
+User: "Show me active users"
+→ snackbase_records tool with filter: { status: 'active' }
+
+User: "Count records by type"
+→ snackbase_records with aggregation
+```
+
+### Schema-Aware Code Generation
+
+The AI can generate code based on your collection schemas:
+
+```
+User: "Generate a TypeScript interface for the products collection"
+→ [Uses snackbase_collections to get schema]
+→ Generates TypeScript interface
+```
+
+### Data Validation
+
+Use AI to validate data before insertion:
+
+```
+User: "Validate this user data before creating"
+→ [Checks collection rules]
+→ Validates required fields
+→ Checks constraints
+```
+
+## Troubleshooting
+
+### MCP Server Not Starting
+
+1. **Verify installation**: `which snackbase-mcp`
+2. **Check environment variables**: `echo $SNACKBASE_URL`
+3. **Test manually**: Run `snackbase-mcp` in a terminal
+
+### Tools Not Available
+
+1. **Restart the AI assistant** after configuration
+2. **Check the MCP server logs** for errors
+3. **Verify API key** has required permissions
+
+### Permission Errors
+
+1. **Check API key** permissions
+2. **Verify account** access
+3. **Review collection rules** if accessing specific data
+
+## Best Practices
+
+### Security
+
+- **Use scoped API keys** with minimal permissions
+- **Rotate keys regularly**
+- **Monitor audit logs** for unusual activity
+- **Never expose keys** in client-side code
+
+### Performance
+
+- **Use pagination** for large result sets
+- **Request only needed fields**
+- **Cache frequently accessed data**
+- **Use filters** to reduce data transfer
+
+### Error Handling
+
+```typescript
+try {
+  const result = await client.callTool({
+    name: 'snackbase_records',
+    arguments: { action: 'list', collection: 'posts' },
+  });
+} catch (error) {
+  if (error.message.includes('401')) {
+    // API key invalid or expired
+  } else if (error.message.includes('403')) {
+    // Insufficient permissions
+  }
+}
+```
+
+## Next Steps
+
+- **[Tools Reference](/mcp/tools)** - Detailed documentation for each tool
