@@ -1,0 +1,204 @@
+---
+title: "API-Defined Hooks"
+description: "Event-driven automation configured via the REST API -- no code required"
+---
+
+**API-Defined Hooks** let you automate actions in response to events, on a schedule, or on demand -- all configured through the REST API or Admin UI without writing backend code.
+
+<Note>
+  This page covers **API-Defined Hooks** -- hooks managed via the REST API with event, schedule, and manual triggers.
+  For the **code-level Python hook system** used to extend SnackBase internals, see the [Hook System Reference](/hooks).
+</Note>
+
+## Overview
+
+An API-defined hook consists of three parts:
+
+1. **Trigger** -- When the hook fires (event, schedule, or manual)
+2. **Condition** -- An optional rule expression that gates execution
+3. **Actions** -- An ordered list of operations to perform
+
+### Key Features
+
+- **Three Trigger Types**: Event-driven, cron-scheduled, or manual
+- **Conditional Execution**: Gate hooks with rule expressions
+- **Action Pipelines**: Chain multiple actions in sequence
+- **Execution Logging**: Full history with status, duration, and errors
+- **Enable/Disable Toggle**: Pause hooks without deleting them
+
+## Trigger Types
+
+### Event Triggers
+
+Fire when a specific event occurs in your application:
+
+```json
+{
+  "type": "event",
+  "event": "records.create",
+  "collection": "orders"
+}
+```
+
+**Supported events:**
+
+| Event | Fires When |
+|-------|-----------|
+| `records.create` | A record is created |
+| `records.update` | A record is updated |
+| `records.delete` | A record is deleted |
+| `auth.login` | A user logs in |
+| `auth.register` | A new user registers |
+
+The `collection` field is optional -- omit it to match events across all collections.
+
+### Schedule Triggers
+
+Fire on a cron schedule:
+
+```json
+{
+  "type": "schedule",
+  "cron": "0 9 * * MON"
+}
+```
+
+Standard 5-field cron syntax is supported:
+
+```
+┌───────────── minute (0-59)
+│ ┌───────────── hour (0-23)
+│ │ ┌───────────── day of month (1-31)
+│ │ │ ┌───────────── month (1-12)
+│ │ │ │ ┌───────────── day of week (0-6, 0=Sunday)
+│ │ │ │ │
+* * * * *
+```
+
+When a scheduled hook is enabled, `next_run_at` is automatically calculated. Disabling clears it; re-enabling recalculates it.
+
+### Manual Triggers
+
+Fire only when explicitly triggered via the API:
+
+```json
+{
+  "type": "manual"
+}
+```
+
+Trigger manually:
+
+```bash
+curl -X POST https://api.snackbase.dev/api/v1/hooks/{hook_id}/trigger \
+  -H "Authorization: Bearer {token}"
+```
+
+## Condition Expressions
+
+Add an optional `condition` to gate hook execution. The hook only fires if the expression evaluates to `true`:
+
+```json
+{
+  "trigger": { "type": "event", "event": "records.create", "collection": "orders" },
+  "condition": "total >= 100"
+}
+```
+
+Conditions use the same rule expression syntax as [collection rules](/permissions) and [webhook filters](/concepts/webhooks).
+
+<Note>
+  If a condition expression fails to evaluate, the hook fires anyway (fail-open design).
+</Note>
+
+## Actions
+
+Actions are executed sequentially. If an action fails, execution stops and the hook is logged with `partial` status.
+
+### Supported Action Types
+
+| Action Type | Description |
+|-------------|-------------|
+| `send_webhook` | Send an HTTP request to an external URL |
+| `send_email` | Send an email (via configured email provider) |
+| `create_record` | Create a record in a collection |
+| `update_record` | Update an existing record |
+| `delete_record` | Delete a record |
+| `enqueue_job` | Enqueue a background job |
+
+### Template Variables
+
+Action configurations support template variables that resolve at execution time:
+
+| Variable | Description |
+|----------|-------------|
+| `{{record.field}}` | Field value from the triggering record |
+| `{{auth.user_id}}` | User ID from the execution context |
+| `{{auth.email}}` | User email from the execution context |
+| `{{now}}` | Current UTC timestamp (ISO 8601) |
+
+**Example** -- send a webhook when a high-value order is created:
+
+```json
+{
+  "name": "Notify on large orders",
+  "trigger": {
+    "type": "event",
+    "event": "records.create",
+    "collection": "orders"
+  },
+  "condition": "total >= 500",
+  "actions": [
+    {
+      "type": "send_webhook",
+      "config": {
+        "url": "https://slack.example.com/webhook",
+        "body_template": {
+          "text": "New order #{{record.id}} for ${{record.total}} from {{record.customer_name}}"
+        }
+      }
+    }
+  ]
+}
+```
+
+## Execution Logging
+
+Every hook execution is logged with:
+
+| Field | Description |
+|-------|-------------|
+| `trigger_type` | `event`, `schedule`, or `manual` |
+| `status` | `success`, `failed`, or `partial` |
+| `actions_executed` | Number of actions completed |
+| `error_message` | Error details (if failed/partial) |
+| `duration_ms` | Execution time in milliseconds |
+| `execution_context` | Snapshot of triggering context (event, account, record, collection) |
+| `executed_at` | Timestamp |
+
+### Execution Statuses
+
+| Status | Meaning |
+|--------|---------|
+| `success` | All actions executed without error |
+| `failed` | Condition not met or first action failed |
+| `partial` | Some actions completed before a failure |
+
+## Limits
+
+| Limit | Default |
+|-------|---------|
+| Max hooks per account | 50 (configurable) |
+| Max action execution depth | 5 (prevents recursive loops) |
+
+## Comparison: Hooks vs Webhooks vs Workflows
+
+| Feature | API-Defined Hooks | Outbound Webhooks | Workflows |
+|---------|-------------------|-------------------|-----------|
+| **Trigger types** | Event, schedule, manual | Record events only | Event, schedule, manual, webhook |
+| **Actions** | Multiple, sequenced | Single HTTP POST | Multi-step with branching |
+| **Conditions** | Rule expressions | Filter expressions | Per-step conditions |
+| **Delays/Waits** | No | No | Yes (wait_delay, wait_condition) |
+| **Branching** | No | No | Yes (condition steps) |
+| **Parallel execution** | No | No | Yes (parallel steps) |
+| **Best for** | Simple automations | External notifications | Complex multi-step processes |

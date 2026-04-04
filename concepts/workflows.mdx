@@ -1,0 +1,352 @@
+---
+title: "Workflow Automation"
+description: "Multi-step automation with branching, delays, and parallel execution"
+---
+
+SnackBase's **Workflow Engine** lets you build multi-step automation pipelines with conditional branching, timed delays, loops, and parallel execution -- all configured via the REST API.
+
+## Overview
+
+A workflow consists of:
+
+1. **Trigger** -- What starts the workflow (event, schedule, manual, or webhook)
+2. **Steps** -- An ordered list of operations with branching and control flow
+3. **Instances** -- Each execution creates a trackable instance with step-by-step logs
+
+### Key Features
+
+- **Four Trigger Types**: Event, schedule, manual, and webhook
+- **Seven Step Types**: Action, condition, wait_delay, wait_condition, wait_event, loop, parallel
+- **Instance Tracking**: Monitor running workflows with status, step logs, and error details
+- **Cancel and Resume**: Cancel running workflows or resume failed ones
+- **Template Variables**: Access trigger data and previous step outputs in any step
+
+## Trigger Types
+
+### Event Triggers
+
+Fire when a record or auth event occurs:
+
+```json
+{
+  "trigger_type": "event",
+  "trigger_config": {
+    "type": "event",
+    "event": "records.create",
+    "collection": "orders",
+    "condition": "total >= 100"
+  }
+}
+```
+
+**Supported events:** `records.create`, `records.update`, `records.delete`, `auth.login`, `auth.register`
+
+### Schedule Triggers
+
+Fire on a cron schedule:
+
+```json
+{
+  "trigger_type": "schedule",
+  "trigger_config": {
+    "type": "schedule",
+    "cron": "0 9 * * MON"
+  }
+}
+```
+
+### Manual Triggers
+
+Fire only via explicit API call:
+
+```json
+{
+  "trigger_type": "manual",
+  "trigger_config": { "type": "manual" }
+}
+```
+
+```bash
+curl -X POST https://api.snackbase.dev/api/v1/workflows/{id}/trigger \
+  -H "Authorization: Bearer {token}" \
+  -H "Content-Type: application/json" \
+  -d '{"customer_id": "cust-123"}'
+```
+
+### Webhook Triggers
+
+Fire via an unauthenticated HTTP POST with a secret token:
+
+```json
+{
+  "trigger_type": "webhook",
+  "trigger_config": {
+    "type": "webhook",
+    "token": "auto-generated-32-char-secret"
+  }
+}
+```
+
+The token is auto-generated on creation. Trigger with:
+
+```bash
+curl -X POST https://api.snackbase.dev/api/v1/workflow-webhooks/{token} \
+  -H "Content-Type: application/json" \
+  -d '{"source": "stripe", "event": "payment.completed"}'
+```
+
+<Warning>
+  Webhook trigger endpoints are unauthenticated. The security relies on the secret token. Treat it like a password.
+</Warning>
+
+## Step Types
+
+Steps are defined as an ordered list. Each step has a unique `name` and a `type`.
+
+### Action
+
+Execute an operation (same action types as [API-Defined Hooks](/concepts/api-hooks)):
+
+```json
+{
+  "name": "send_notification",
+  "type": "action",
+  "config": {
+    "action_type": "send_webhook",
+    "config": {
+      "url": "https://slack.example.com/webhook",
+      "body_template": { "text": "Order {{trigger.id}} created" }
+    }
+  }
+}
+```
+
+Supported actions: `send_webhook`, `send_email`, `create_record`, `update_record`, `delete_record`, `enqueue_job`.
+
+### Condition
+
+Branch based on a rule expression:
+
+```json
+{
+  "name": "check_value",
+  "type": "condition",
+  "config": {
+    "expression": "trigger.total >= 500",
+    "on_true": "high_value_flow",
+    "on_false": "standard_flow"
+  }
+}
+```
+
+Output: `{"result": true, "branch": "true"}` or `{"result": false, "branch": "false"}`
+
+### Wait Delay
+
+Pause execution for a specified duration:
+
+```json
+{
+  "name": "wait_24h",
+  "type": "wait_delay",
+  "config": {
+    "duration": "24h",
+    "next": "follow_up_step"
+  }
+}
+```
+
+**Duration format:** `<number><unit>` where unit is `s` (seconds), `m` (minutes), `h` (hours), or `d` (days).
+
+The workflow instance transitions to `waiting` status. A background job resumes it after the delay.
+
+### Loop
+
+Iterate over a list, executing a step for each item:
+
+```json
+{
+  "name": "process_items",
+  "type": "loop",
+  "config": {
+    "items": "{{trigger.line_items}}",
+    "step": "process_single_item"
+  }
+}
+```
+
+Output: `{"items_count": 3, "outputs": [...]}`
+
+### Parallel
+
+Execute multiple branches concurrently:
+
+```json
+{
+  "name": "parallel_notifications",
+  "type": "parallel",
+  "config": {
+    "branches": [
+      ["send_email_step"],
+      ["send_slack_step"],
+      ["update_crm_step"]
+    ]
+  }
+}
+```
+
+Output: `{"branch_results": [[...], [...], [...]]}`
+
+If any branch fails, the entire parallel step fails.
+
+### Wait Condition / Wait Event
+
+<Note>
+  `wait_condition` and `wait_event` step types are defined in the schema but not yet implemented. They are skipped during execution.
+</Note>
+
+## Template Variables
+
+All step configurations support template variables:
+
+| Variable | Description |
+|----------|-------------|
+| `{{trigger.<field>}}` | Data from the trigger context |
+| `{{steps.<step_name>.output.<field>}}` | Output from a previous step |
+| `{{auth.user_id}}` | User ID (if authenticated trigger) |
+| `{{auth.email}}` | User email |
+| `{{now}}` | Current UTC timestamp (ISO 8601) |
+
+## Workflow Instances
+
+Each execution creates a **workflow instance** that tracks progress:
+
+### Instance Lifecycle
+
+```
+pending ──> running ──> completed
+                   ├──> failed ──> (resume) ──> running
+                   ├──> waiting ──> (resume after delay) ──> running
+                   └──> cancelled
+```
+
+### Instance Statuses
+
+| Status | Meaning |
+|--------|---------|
+| `pending` | Created, not yet started |
+| `running` | Actively executing steps |
+| `waiting` | Paused on a `wait_delay` step |
+| `completed` | All steps finished successfully |
+| `failed` | A step failed (check `error_message`) |
+| `cancelled` | Manually cancelled by user |
+
+### Instance Management
+
+**Cancel** a running or waiting instance:
+
+```bash
+curl -X POST https://api.snackbase.dev/api/v1/workflow-instances/{instance_id}/cancel \
+  -H "Authorization: Bearer {token}"
+```
+
+**Resume** a failed or waiting instance:
+
+```bash
+curl -X POST https://api.snackbase.dev/api/v1/workflow-instances/{instance_id}/resume \
+  -H "Authorization: Bearer {token}"
+```
+
+## Step Logs
+
+Every step execution is logged with:
+
+| Field | Description |
+|-------|-------------|
+| `step_name` | Name of the step |
+| `step_type` | Type (action, condition, wait_delay, etc.) |
+| `status` | `success`, `failed`, or `skipped` |
+| `input` | Snapshot of step inputs |
+| `output` | Step output data |
+| `error_message` | Error details (if failed) |
+| `started_at` | When the step began |
+| `completed_at` | When the step finished |
+
+## Example: Order Processing Workflow
+
+```json
+{
+  "name": "Order Processing",
+  "trigger_type": "event",
+  "trigger_config": {
+    "type": "event",
+    "event": "records.create",
+    "collection": "orders"
+  },
+  "steps": [
+    {
+      "name": "check_value",
+      "type": "condition",
+      "config": {
+        "expression": "trigger.total >= 500",
+        "on_true": "high_value_alert",
+        "on_false": "standard_confirm"
+      }
+    },
+    {
+      "name": "high_value_alert",
+      "type": "action",
+      "config": {
+        "action_type": "send_webhook",
+        "config": {
+          "url": "https://slack.example.com/webhook",
+          "body_template": {
+            "text": "High-value order #{{trigger.id}}: ${{trigger.total}}"
+          }
+        }
+      }
+    },
+    {
+      "name": "standard_confirm",
+      "type": "action",
+      "config": {
+        "action_type": "send_email",
+        "config": {
+          "to": "{{trigger.customer_email}}",
+          "subject": "Order Confirmed",
+          "template_name": "order_confirmation",
+          "variables": { "order_id": "{{trigger.id}}" }
+        }
+      }
+    },
+    {
+      "name": "wait_for_processing",
+      "type": "wait_delay",
+      "config": {
+        "duration": "2h",
+        "next": "update_status"
+      }
+    },
+    {
+      "name": "update_status",
+      "type": "action",
+      "config": {
+        "action_type": "update_record",
+        "config": {
+          "collection": "orders",
+          "record_id": "{{trigger.id}}",
+          "data": { "status": "processing" }
+        }
+      }
+    }
+  ]
+}
+```
+
+## Limits
+
+| Limit | Default |
+|-------|---------|
+| Max workflows per account | 50 (configurable) |
+| Max step execution depth | 5 |
+| Webhook token length | 32 characters (URL-safe) |

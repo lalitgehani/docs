@@ -42,7 +42,10 @@
               "guides/writing-rules",
               "guides/testing",
               "guides/extending-snackbase",
-              "guides/frontend"
+              "guides/frontend",
+              "guides/setting-up-webhooks",
+              "guides/building-workflows",
+              "guides/creating-custom-endpoints"
             ]
           },
           {
@@ -81,6 +84,16 @@
           {
             "group": "Advanced",
             "pages": ["architecture", "hooks", "permissions", "macros"]
+          },
+          {
+            "group": "Automation",
+            "pages": [
+              "concepts/api-hooks",
+              "concepts/webhooks",
+              "concepts/custom-endpoints",
+              "concepts/workflows",
+              "concepts/background-jobs"
+            ]
           }
         ]
       },
@@ -129,6 +142,16 @@
               "sdk/js/services/email-templates",
               "sdk/js/services/files",
               "sdk/js/services/migrations"
+            ]
+          },
+          {
+            "group": "Automation Services",
+            "pages": [
+              "sdk/js/services/webhooks",
+              "sdk/js/services/hooks",
+              "sdk/js/services/endpoints",
+              "sdk/js/services/workflows",
+              "sdk/js/services/jobs"
             ]
           },
           {
@@ -355,6 +378,69 @@
               "api-reference/endpoints/migrations/list-migrations",
               "api-reference/endpoints/migrations/get-current-migration",
               "api-reference/endpoints/migrations/get-migration-history"
+            ]
+          },
+          {
+            "group": "Webhooks",
+            "pages": [
+              "api-reference/endpoints/webhooks/create-webhook",
+              "api-reference/endpoints/webhooks/list-webhooks",
+              "api-reference/endpoints/webhooks/get-webhook",
+              "api-reference/endpoints/webhooks/update-webhook",
+              "api-reference/endpoints/webhooks/delete-webhook",
+              "api-reference/endpoints/webhooks/list-deliveries",
+              "api-reference/endpoints/webhooks/test-webhook"
+            ]
+          },
+          {
+            "group": "Hooks",
+            "pages": [
+              "api-reference/endpoints/hooks/create-hook",
+              "api-reference/endpoints/hooks/list-hooks",
+              "api-reference/endpoints/hooks/get-hook",
+              "api-reference/endpoints/hooks/update-hook",
+              "api-reference/endpoints/hooks/delete-hook",
+              "api-reference/endpoints/hooks/toggle-hook",
+              "api-reference/endpoints/hooks/trigger-hook",
+              "api-reference/endpoints/hooks/list-hook-executions"
+            ]
+          },
+          {
+            "group": "Custom Endpoints",
+            "pages": [
+              "api-reference/endpoints/custom-endpoints/create-endpoint",
+              "api-reference/endpoints/custom-endpoints/list-endpoints",
+              "api-reference/endpoints/custom-endpoints/get-endpoint",
+              "api-reference/endpoints/custom-endpoints/update-endpoint",
+              "api-reference/endpoints/custom-endpoints/delete-endpoint",
+              "api-reference/endpoints/custom-endpoints/toggle-endpoint",
+              "api-reference/endpoints/custom-endpoints/list-endpoint-executions"
+            ]
+          },
+          {
+            "group": "Workflows",
+            "pages": [
+              "api-reference/endpoints/workflows/create-workflow",
+              "api-reference/endpoints/workflows/list-workflows",
+              "api-reference/endpoints/workflows/get-workflow",
+              "api-reference/endpoints/workflows/update-workflow",
+              "api-reference/endpoints/workflows/delete-workflow",
+              "api-reference/endpoints/workflows/toggle-workflow",
+              "api-reference/endpoints/workflows/trigger-workflow",
+              "api-reference/endpoints/workflows/list-workflow-instances",
+              "api-reference/endpoints/workflows/get-workflow-instance",
+              "api-reference/endpoints/workflows/cancel-workflow-instance",
+              "api-reference/endpoints/workflows/resume-workflow-instance",
+              "api-reference/endpoints/workflows/workflow-webhook-trigger"
+            ]
+          },
+          {
+            "group": "Jobs",
+            "pages": [
+              "api-reference/endpoints/jobs/list-jobs",
+              "api-reference/endpoints/jobs/get-job-stats",
+              "api-reference/endpoints/jobs/retry-job",
+              "api-reference/endpoints/jobs/cancel-job"
             ]
           },
           {

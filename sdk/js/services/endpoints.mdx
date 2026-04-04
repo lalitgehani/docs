@@ -1,0 +1,143 @@
+---
+title: "Endpoints Service"
+description: "Manage custom serverless-like HTTP endpoints"
+---
+
+The Endpoints service allows you to create and manage custom HTTP endpoints that execute action pipelines when called.
+
+## Overview
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+});
+
+// Access the endpoints service
+const endpoints = client.endpoints;
+```
+
+## List Endpoints
+
+```ts
+const result = await client.endpoints.list();
+// result.items - array of endpoints
+// result.total - total count
+```
+
+With filters:
+
+```ts
+const result = await client.endpoints.list({
+  method: "POST",
+  enabled: true,
+  limit: 50,
+  offset: 0,
+});
+```
+
+## Get an Endpoint
+
+```ts
+const endpoint = await client.endpoints.get("endpoint-id");
+```
+
+## Create an Endpoint
+
+```ts
+const endpoint = await client.endpoints.create({
+  name: "Submit Feedback",
+  path: "/submit-feedback",
+  method: "POST",
+  auth_required: true,
+  actions: [
+    {
+      type: "create_record",
+      config: {
+        collection: "feedback",
+        data: {
+          message: "{{request.body.message}}",
+          user_id: "{{auth.user_id}}",
+          submitted_at: "{{now}}",
+        },
+      },
+    },
+  ],
+  response_template: {
+    status: 201,
+    body: { message: "Feedback received" },
+  },
+});
+```
+
+## Update an Endpoint
+
+```ts
+const updated = await client.endpoints.update("endpoint-id", {
+  name: "Updated Endpoint",
+  auth_required: false,
+});
+```
+
+## Delete an Endpoint
+
+```ts
+await client.endpoints.delete("endpoint-id");
+```
+
+## Toggle Enabled/Disabled
+
+```ts
+const endpoint = await client.endpoints.toggle("endpoint-id");
+console.log(endpoint.enabled); // toggled value
+```
+
+## List Executions
+
+View the execution history:
+
+```ts
+const executions = await client.endpoints.listExecutions("endpoint-id", {
+  limit: 50,
+  offset: 0,
+});
+
+for (const exec of executions.items) {
+  console.log(exec.status);
+  console.log(exec.duration_ms);
+}
+```
+
+## Calling Custom Endpoints
+
+Once created, call your custom endpoints at `/api/v1/x/{path}`:
+
+```ts
+// Using the SDK's HTTP client directly
+const response = await fetch(
+  "https://api.example.com/api/v1/x/submit-feedback",
+  {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      message: "Great product!",
+    }),
+  }
+);
+```
+
+With path parameters:
+
+```ts
+// Endpoint path: /customers/:customer_id/summary
+const response = await fetch(
+  "https://api.example.com/api/v1/x/customers/cust-123/summary",
+  {
+    headers: { Authorization: `Bearer ${token}` },
+  }
+);
+```

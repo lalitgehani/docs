@@ -1,0 +1,163 @@
+---
+title: "Hooks Service"
+description: "Manage API-defined hooks with event, schedule, and manual triggers"
+---
+
+The Hooks service allows you to create and manage API-defined hooks -- automated actions triggered by events, cron schedules, or manual invocation.
+
+## Overview
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+});
+
+// Access the hooks service
+const hooks = client.hooks;
+```
+
+## List Hooks
+
+```ts
+const result = await client.hooks.list();
+// result.items - array of hooks
+// result.total - total count
+```
+
+With filters:
+
+```ts
+const result = await client.hooks.list({
+  trigger_type: "event",
+  enabled: true,
+  limit: 50,
+  offset: 0,
+});
+```
+
+## Get a Hook
+
+```ts
+const hook = await client.hooks.get("hook-id");
+```
+
+## Create a Hook
+
+### Event-triggered hook
+
+```ts
+const hook = await client.hooks.create({
+  name: "Notify on new orders",
+  trigger: {
+    type: "event",
+    event: "records.create",
+    collection: "orders",
+  },
+  condition: "total >= 100",
+  actions: [
+    {
+      type: "send_webhook",
+      config: {
+        url: "https://slack.example.com/webhook",
+        body_template: {
+          text: "New order: ${{record.total}}",
+        },
+      },
+    },
+  ],
+});
+```
+
+### Scheduled hook
+
+```ts
+const hook = await client.hooks.create({
+  name: "Daily report",
+  trigger: {
+    type: "schedule",
+    cron: "0 9 * * *", // Every day at 9 AM
+  },
+  actions: [
+    {
+      type: "send_email",
+      config: {
+        to: "team@example.com",
+        subject: "Daily Report",
+        template_name: "daily_report",
+      },
+    },
+  ],
+});
+```
+
+### Manual hook
+
+```ts
+const hook = await client.hooks.create({
+  name: "Data cleanup",
+  trigger: { type: "manual" },
+  actions: [
+    {
+      type: "delete_record",
+      config: {
+        collection: "temp_data",
+        record_id: "all-expired",
+      },
+    },
+  ],
+});
+```
+
+## Update a Hook
+
+```ts
+const updated = await client.hooks.update("hook-id", {
+  name: "Updated hook name",
+  condition: "total >= 200",
+});
+```
+
+## Delete a Hook
+
+```ts
+await client.hooks.delete("hook-id");
+```
+
+## Toggle Enabled/Disabled
+
+```ts
+const hook = await client.hooks.toggle("hook-id");
+console.log(hook.enabled); // toggled value
+```
+
+<Note>
+  Toggling a scheduled hook recalculates `next_run_at` when re-enabled, or clears it when disabled.
+</Note>
+
+## Trigger a Hook Manually
+
+```ts
+const result = await client.hooks.trigger("hook-id");
+console.log(result.queued); // true
+```
+
+## List Executions
+
+View the execution history for a hook:
+
+```ts
+const executions = await client.hooks.listExecutions("hook-id", {
+  limit: 50,
+  offset: 0,
+});
+
+for (const exec of executions.items) {
+  console.log(exec.trigger_type); // "event", "schedule", "manual"
+  console.log(exec.status); // "success", "failed", "partial"
+  console.log(exec.actions_executed); // number of actions completed
+  console.log(exec.duration_ms); // execution time in ms
+  console.log(exec.error_message); // error details (if any)
+}
+```

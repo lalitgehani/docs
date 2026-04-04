@@ -1,0 +1,202 @@
+---
+title: "Setting Up Webhooks"
+description: "Step-by-step guide to configuring outbound webhooks for external notifications"
+---
+
+This guide walks you through setting up outbound webhooks to send HTTP notifications to external services when data changes in your collections.
+
+## Prerequisites
+
+- A running SnackBase instance
+- At least one collection with data
+- An external HTTPS endpoint to receive webhooks (for production)
+
+## Setup
+
+<Steps>
+  <Step title="Create a Webhook">
+    Create a webhook using the API or SDK:
+
+    <Tabs>
+      <Tab title="SDK">
+        ```ts
+        const webhook = await client.webhooks.create({
+          url: "https://your-server.com/webhooks/orders",
+          collection: "orders",
+          events: ["create", "update"],
+        });
+
+        // IMPORTANT: Save this secret
+        console.log("Webhook secret:", webhook.secret);
+        ```
+      </Tab>
+      <Tab title="cURL">
+        ```bash
+        curl -X POST https://api.snackbase.dev/api/v1/webhooks \
+          -H "Authorization: Bearer {token}" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "url": "https://your-server.com/webhooks/orders",
+            "collection": "orders",
+            "events": ["create", "update"]
+          }'
+        ```
+      </Tab>
+    </Tabs>
+
+    <Warning>
+      The webhook `secret` is only returned in the creation response. Store it securely -- you'll need it to verify signatures.
+    </Warning>
+  </Step>
+
+  <Step title="Store the Signing Secret">
+    Store the returned secret in your server's environment variables:
+
+    ```bash
+    export SNACKBASE_WEBHOOK_SECRET="your-64-char-hex-secret"
+    ```
+
+    Never hardcode the secret in your source code.
+  </Step>
+
+  <Step title="Implement Signature Verification">
+    Every webhook delivery includes an `X-SnackBase-Signature` header. Verify it on your server:
+
+    <Tabs>
+      <Tab title="Node.js">
+        ```js
+        const crypto = require("crypto");
+
+        function verifyWebhook(payload, secret, signatureHeader) {
+          const expected =
+            "sha256=" +
+            crypto.createHmac("sha256", secret).update(payload).digest("hex");
+          return crypto.timingSafeEqual(
+            Buffer.from(expected),
+            Buffer.from(signatureHeader)
+          );
+        }
+
+        // Express middleware
+        app.post("/webhooks/orders", express.raw({ type: "application/json" }), (req, res) => {
+          const signature = req.headers["x-snackbase-signature"];
+          if (!verifyWebhook(req.body, process.env.SNACKBASE_WEBHOOK_SECRET, signature)) {
+            return res.status(401).send("Invalid signature");
+          }
+
+          const event = JSON.parse(req.body);
+          console.log("Event:", event.event);
+          console.log("Record:", event.record);
+
+          res.status(200).send("OK");
+        });
+        ```
+      </Tab>
+      <Tab title="Python">
+        ```python
+        import hmac
+        import hashlib
+
+        def verify_webhook(payload: bytes, secret: str, signature_header: str) -> bool:
+            expected = "sha256=" + hmac.new(
+                secret.encode(), payload, hashlib.sha256
+            ).hexdigest()
+            return hmac.compare_digest(expected, signature_header)
+
+        # FastAPI example
+        @app.post("/webhooks/orders")
+        async def handle_webhook(request: Request):
+            body = await request.body()
+            signature = request.headers.get("x-snackbase-signature")
+
+            if not verify_webhook(body, os.environ["SNACKBASE_WEBHOOK_SECRET"], signature):
+                raise HTTPException(status_code=401, detail="Invalid signature")
+
+            event = await request.json()
+            print(f"Event: {event['event']}, Record: {event['record']}")
+            return {"status": "ok"}
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Test Your Webhook">
+    Use the built-in test endpoint to verify everything works:
+
+    <Tabs>
+      <Tab title="SDK">
+        ```ts
+        const result = await client.webhooks.test("webhook-id");
+        console.log(result.success); // true
+        console.log(result.status_code); // 200
+        ```
+      </Tab>
+      <Tab title="cURL">
+        ```bash
+        curl -X POST https://api.snackbase.dev/api/v1/webhooks/{webhook_id}/test \
+          -H "Authorization: Bearer {token}"
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Monitor Deliveries">
+    Check delivery history to debug issues:
+
+    ```ts
+    const deliveries = await client.webhooks.listDeliveries("webhook-id");
+
+    for (const d of deliveries.items) {
+      console.log(`${d.event} - ${d.status} (HTTP ${d.response_status})`);
+      if (d.status === "failed") {
+        console.log("Error:", d.response_body);
+      }
+    }
+    ```
+  </Step>
+</Steps>
+
+## Adding Filters
+
+Only fire webhooks when specific conditions are met:
+
+```ts
+const webhook = await client.webhooks.create({
+  url: "https://your-server.com/webhooks/high-value",
+  collection: "orders",
+  events: ["create"],
+  filter: 'total >= 500 and status = "confirmed"',
+});
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Webhook deliveries are failing">
+    Check the delivery history for error details. Common causes:
+    - Your endpoint is returning non-2xx status codes
+    - Your endpoint is taking longer than 30 seconds to respond
+    - DNS resolution is failing for your URL
+  </Accordion>
+
+  <Accordion title="Signature verification fails">
+    Ensure you're verifying against the raw request body (bytes), not a parsed/re-serialized JSON object. The signature is computed over the exact bytes sent.
+  </Accordion>
+
+  <Accordion title="Webhook not firing">
+    - Verify the webhook is `enabled`
+    - Check that the event type matches (`create`, `update`, `delete`)
+    - If using a filter, verify the expression matches your record data
+    - Filters that fail to evaluate will still fire the webhook (fail-open)
+  </Accordion>
+
+  <Accordion title="HTTPS required error">
+    In production, SnackBase requires HTTPS URLs. For local development, HTTP is allowed. Private IPs (localhost, 10.x, 192.168.x) are also blocked in production.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+- [Outbound Webhooks Concept](/concepts/webhooks) -- full reference
+- [Webhooks API Reference](/api-reference/endpoints/webhooks/create-webhook) -- all endpoints
+- [Webhooks SDK Reference](/sdk/js/services/webhooks) -- SDK methods

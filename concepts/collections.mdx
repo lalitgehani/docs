@@ -759,6 +759,24 @@ Each collection creates a table. Consider:
 
 **Example**: Instead of `blog_posts` and `news_posts`, use `posts` with a `category` field.
 
+## Aggregation Queries
+
+Collections support server-side aggregation via the `/{collection}/aggregate` endpoint:
+
+| Function | Description |
+|----------|-------------|
+| `count` | Count matching records |
+| `sum` | Sum a numeric field |
+| `avg` | Average of a numeric field |
+| `min` | Minimum value |
+| `max` | Maximum value |
+
+Aggregations support `filter`, `group_by`, and `having` clauses for powerful analytics without fetching raw records. See the [API Reference](/api-reference/introduction) for full details.
+
+## Public Collections
+
+Collections can be configured for **anonymous read access**, allowing unauthenticated users to query records. This is useful for public-facing data like product listings, blog posts, or FAQ content.
+
 ## Summary
 
 | Concept | Key Takeaway |

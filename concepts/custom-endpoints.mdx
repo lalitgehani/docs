@@ -1,0 +1,247 @@
+---
+title: "Custom Endpoints"
+description: "Define serverless-like HTTP endpoints without writing backend code"
+---
+
+**Custom Endpoints** let you define serverless-like HTTP endpoints that execute action pipelines -- all configured through the REST API. Define a path, choose an HTTP method, configure actions, and your endpoint is live.
+
+## Overview
+
+Custom endpoints are dispatched through a dedicated URL namespace:
+
+```
+POST /api/v1/x/{your-slug}/{optional-path}
+```
+
+When a request arrives, SnackBase matches it to an endpoint definition, evaluates authorization conditions, executes the action pipeline, and returns the configured response.
+
+### Key Features
+
+- **No Code Required**: Define endpoints via API or Admin UI
+- **Path Parameters**: Support for `:param` segments (e.g., `/users/:user_id/orders`)
+- **Authorization Conditions**: Gate access with rule expressions
+- **Action Pipelines**: Chain multiple actions with access to results from previous steps
+- **Response Templates**: Customize response status, body, and headers
+- **Execution History**: Track every invocation with timing and status
+
+## How It Works
+
+```
+┌───────────────┐     ┌──────────────────────────────┐     ┌──────────────┐
+│  HTTP Request │     │   Custom Endpoint Dispatcher │     │   Response   │
+│               │────>│                              │────>│              │
+│  POST /api/v1 │     │  1. Match path + method      │     │  Status code │
+│  /x/feedback  │     │  2. Extract path params      │     │  Body        │
+│               │     │  3. Check auth (if required) │     │  Headers     │
+│               │     │  4. Evaluate condition       │     │              │
+│               │     │  5. Execute actions          │     │              │
+│               │     │  6. Apply response template  │     │              │
+└───────────────┘     └──────────────────────────────┘     └──────────────┘
+```
+
+## Endpoint Definition
+
+| Field               | Type    | Required | Description                                                             |
+| ------------------- | ------- | -------- | ----------------------------------------------------------------------- |
+| `name`              | string  | Yes      | Human-readable name (max 200 chars)                                     |
+| `path`              | string  | Yes      | URL path (max 500 chars), e.g., `/submit-feedback` or `/users/:user_id` |
+| `method`            | string  | Yes      | HTTP method: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`                    |
+| `auth_required`     | boolean | No       | Require authentication (default: `true`)                                |
+| `condition`         | string  | No       | Rule expression -- returns 403 if false                                 |
+| `actions`           | array   | No       | Ordered list of action configs (default: `[]`)                          |
+| `response_template` | object  | No       | Custom response format                                                  |
+| `enabled`           | boolean | No       | Active status (default: `true`)                                         |
+
+### Path Parameters
+
+Use `:param` syntax to capture path segments:
+
+```
+/users/:user_id/orders/:order_id
+```
+
+These values are available as `{{request.params.user_id}}` and `{{request.params.order_id}}` in action templates.
+
+### Uniqueness
+
+Each endpoint is uniquely identified by the combination of `(account_id, path, method)`. You cannot create two endpoints with the same path and method within one account.
+
+## Actions
+
+Actions execute sequentially. Each action's result is available to subsequent actions.
+
+### Supported Action Types
+
+| Action Type         | Description                                    |
+| ------------------- | ---------------------------------------------- |
+| `send_webhook`      | Send an HTTP request to an external URL        |
+| `send_email`        | Send an email                                  |
+| `create_record`     | Create a record in a collection                |
+| `update_record`     | Update an existing record                      |
+| `delete_record`     | Delete a record                                |
+| `enqueue_job`       | Enqueue a background job                       |
+| `query_records`     | Query records from a collection                |
+| `aggregate_records` | Run an aggregation (count, sum, avg, min, max) |
+| `transform`         | Transform data using a template                |
+
+### Query Records
+
+```json
+{
+  "type": "query_records",
+  "config": {
+    "collection": "orders",
+    "filter": "customer_id = '{{request.params.customer_id}}'",
+    "sort": "-created_at",
+    "limit": 10,
+    "offset": 0
+  }
+}
+```
+
+### Aggregate Records
+
+```json
+{
+  "type": "aggregate_records",
+  "config": {
+    "collection": "orders",
+    "function": "sum",
+    "field": "total",
+    "filter": "status = 'completed'",
+    "group_by": "category"
+  }
+}
+```
+
+Supported functions: `count`, `sum`, `avg`, `min`, `max`.
+
+### Transform
+
+Reshape data from previous action results:
+
+```json
+{
+  "type": "transform",
+  "config": {
+    "output": {
+      "total_orders": "{{actions[0].result}}",
+      "customer": "{{request.params.customer_id}}"
+    }
+  }
+}
+```
+
+## Template Variables
+
+All string values in action configs and response templates support these variables:
+
+| Variable                   | Description                             |
+| -------------------------- | --------------------------------------- |
+| `{{request.body.field}}`   | Value from the request body             |
+| `{{request.query.field}}`  | URL query parameter                     |
+| `{{request.params.field}}` | Path parameter (from `:param` segments) |
+| `{{auth.user_id}}`         | Authenticated user's ID                 |
+| `{{auth.email}}`           | Authenticated user's email              |
+| `{{auth.account_id}}`      | Account ID                              |
+| `{{actions[N].result}}`    | Result of the Nth action (0-indexed)    |
+| `{{now}}`                  | Current UTC timestamp (ISO 8601)        |
+
+## Response Templates
+
+Customize what your endpoint returns:
+
+```json
+{
+  "response_template": {
+    "status": 200,
+    "body": {
+      "message": "Feedback received",
+      "order_count": "{{actions[0].result}}"
+    },
+    "headers": {
+      "X-Custom-Header": "value"
+    }
+  }
+}
+```
+
+If no response template is configured, the endpoint returns HTTP 200 with the last action's result as the body.
+
+## Authorization
+
+### Authentication
+
+Set `auth_required: true` (the default) to require a valid authentication token. Set to `false` for public endpoints.
+
+### Condition Expressions
+
+Add a `condition` to control who can access the endpoint:
+
+```json
+{
+  "condition": "@has_role('admin') or @owns_record()"
+}
+```
+
+If the condition evaluates to `false`, the endpoint returns 403 Forbidden.
+
+## Example: Customer Order Summary Endpoint
+
+```json
+{
+  "name": "Customer Order Summary",
+  "path": "/customers/:customer_id/summary",
+  "method": "GET",
+  "auth_required": true,
+  "actions": [
+    {
+      "type": "query_records",
+      "config": {
+        "collection": "orders",
+        "filter": "customer_id = '{{request.params.customer_id}}'",
+        "sort": "-created_at",
+        "limit": 5
+      }
+    },
+    {
+      "type": "aggregate_records",
+      "config": {
+        "collection": "orders",
+        "function": "sum",
+        "field": "total",
+        "filter": "customer_id = '{{request.params.customer_id}}'"
+      }
+    },
+    {
+      "type": "transform",
+      "config": {
+        "output": {
+          "recent_orders": "{{actions[0].result}}",
+          "lifetime_total": "{{actions[1].result}}"
+        }
+      }
+    }
+  ],
+  "response_template": {
+    "status": 200,
+    "body": "{{actions[2].result}}"
+  }
+}
+```
+
+Call it:
+
+```bash
+curl https://api.snackbase.dev/api/v1/x/customers/cust-123/summary \
+  -H "Authorization: Bearer {token}"
+```
+
+## Limits
+
+| Limit                      | Default           |
+| -------------------------- | ----------------- |
+| Max endpoints per account  | 20 (configurable) |
+| Execution timeout          | 30 seconds        |
+| Max action execution depth | 5                 |
+| Path max length            | 500 characters    |

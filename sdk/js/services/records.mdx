@@ -385,6 +385,55 @@ Create a query builder for the collection.
 
 **Returns:** `QueryBuilder`
 
+## Batch Operations
+
+Perform multiple record operations atomically using the dedicated batch endpoint:
+
+```ts
+// Batch create
+const created = await client.records.batchCreate("posts", [
+  { title: "Post 1", status: "draft" },
+  { title: "Post 2", status: "published" },
+]);
+
+// Batch update
+const updated = await client.records.batchUpdate("posts", [
+  { id: "post-1", data: { status: "published" } },
+  { id: "post-2", data: { status: "archived" } },
+]);
+
+// Batch delete
+await client.records.batchDelete("posts", ["post-1", "post-2"]);
+```
+
+## Aggregation Queries
+
+Run server-side aggregations without fetching raw records:
+
+```ts
+const result = await client.records.aggregate("orders", {
+  function: "sum",
+  field: "total",
+  filter: "status = 'completed'",
+  group_by: "category",
+});
+```
+
+Supported functions: `count`, `sum`, `avg`, `min`, `max`.
+
+## Reference Expansion
+
+Expand reference fields inline to avoid N+1 queries:
+
+```ts
+const orders = await client.records.list("orders", {
+  expand: "customer_id,product_id",
+});
+
+// Each order now includes the full referenced records
+console.log(orders.items[0].expand.customer_id.name);
+```
+
 ## Next Steps
 
 - **[Query Builder](/sdk/js/query/overview)** - Advanced querying

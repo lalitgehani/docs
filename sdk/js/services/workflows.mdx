@@ -1,0 +1,186 @@
+---
+title: "Workflows Service"
+description: "Create and manage multi-step workflow automations"
+---
+
+The Workflows service allows you to create, manage, and monitor multi-step automation workflows with triggers, conditions, and delays.
+
+## Overview
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+});
+
+// Access the workflows service
+const workflows = client.workflows;
+```
+
+## List Workflows
+
+```ts
+const result = await client.workflows.list();
+// result.items - array of workflows
+// result.total - total count
+```
+
+With filters:
+
+```ts
+const result = await client.workflows.list({
+  trigger_type: "event",
+  enabled: true,
+  limit: 50,
+  offset: 0,
+});
+```
+
+## Get a Workflow
+
+```ts
+const workflow = await client.workflows.get("workflow-id");
+```
+
+## Create a Workflow
+
+```ts
+const workflow = await client.workflows.create({
+  name: "Order Processing",
+  trigger_type: "event",
+  trigger_config: {
+    type: "event",
+    event: "records.create",
+    collection: "orders",
+  },
+  steps: [
+    {
+      name: "check_value",
+      type: "condition",
+      config: {
+        expression: "trigger.total >= 500",
+        on_true: "high_value_alert",
+        on_false: "standard_confirm",
+      },
+    },
+    {
+      name: "high_value_alert",
+      type: "action",
+      config: {
+        action_type: "send_webhook",
+        config: {
+          url: "https://slack.example.com/webhook",
+          body_template: {
+            text: "High-value order: ${{trigger.total}}",
+          },
+        },
+      },
+    },
+    {
+      name: "standard_confirm",
+      type: "action",
+      config: {
+        action_type: "send_email",
+        config: {
+          to: "{{trigger.customer_email}}",
+          subject: "Order Confirmed",
+          template_name: "order_confirmation",
+        },
+      },
+    },
+  ],
+});
+```
+
+## Update a Workflow
+
+```ts
+const updated = await client.workflows.update("workflow-id", {
+  name: "Updated Workflow",
+  enabled: true,
+});
+```
+
+## Delete a Workflow
+
+```ts
+await client.workflows.delete("workflow-id");
+```
+
+<Warning>
+  Deleting a workflow also deletes all its instances and step logs.
+</Warning>
+
+## Trigger a Workflow
+
+Manually trigger a workflow with optional input data:
+
+```ts
+const result = await client.workflows.trigger("workflow-id", {
+  customer_id: "cust-123",
+  reason: "manual test",
+});
+
+console.log(result.instance_id); // ID of the created instance
+```
+
+## List Instances
+
+View execution instances for a workflow:
+
+```ts
+const instances = await client.workflows.listInstances("workflow-id", {
+  status: "failed",
+  limit: 50,
+  offset: 0,
+});
+
+for (const instance of instances.items) {
+  console.log(instance.status); // "pending", "running", "waiting", "completed", "failed", "cancelled"
+  console.log(instance.current_step); // name of current/last step
+  console.log(instance.error_message); // error details (if failed)
+}
+```
+
+## Get Instance Details
+
+Get a single instance with its full step logs:
+
+```ts
+const instance = await client.workflows.getInstance("instance-id");
+
+console.log(instance.status);
+console.log(instance.context); // accumulated execution context
+
+// Step logs
+for (const log of instance.step_logs) {
+  console.log(log.step_name);
+  console.log(log.step_type);
+  console.log(log.status); // "success", "failed", "skipped"
+  console.log(log.output);
+  console.log(log.duration_ms);
+}
+```
+
+## Cancel an Instance
+
+Cancel a running or waiting instance:
+
+```ts
+const cancelled = await client.workflows.cancelInstance("instance-id");
+console.log(cancelled.status); // "cancelled"
+```
+
+<Note>
+  Only instances in `running` or `waiting` status can be cancelled. Attempting to cancel a completed or already cancelled instance returns a 409 error.
+</Note>
+
+## Retry a Failed Instance
+
+Resume a failed or waiting instance:
+
+```ts
+const result = await client.workflows.retryInstance("instance-id");
+console.log(result.instance_id);
+```

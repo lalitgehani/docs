@@ -1,0 +1,193 @@
+---
+title: "Outbound Webhooks"
+description: "Push notifications to external URLs when data changes in your collections"
+---
+
+SnackBase's **Outbound Webhooks** let you send HTTP notifications to external services whenever records are created, updated, or deleted. Instead of polling for changes, your external systems receive real-time push notifications.
+
+## Overview
+
+Webhooks are configured per-collection and fire on specific events. When an event occurs, SnackBase sends a signed HTTP POST to your configured URL with the record data.
+
+### Key Features
+
+- **Event-Driven**: Fire on `create`, `update`, or `delete` events
+- **HMAC-SHA256 Signing**: Every delivery is signed with a per-webhook secret
+- **Automatic Retries**: Failed deliveries are retried up to 5 times with exponential backoff
+- **Delivery Tracking**: Full history of every delivery attempt with status codes and response bodies
+- **Filter Expressions**: Conditionally fire webhooks based on record data
+- **Custom Headers**: Add custom HTTP headers to webhook deliveries
+
+## How It Works
+
+```
+┌──────────────┐     ┌────────────────────┐     ┌──────────────────┐
+│  Record      │     │   SnackBase        │     │  Your Server     │
+│  Operation   │────>│   Webhook Engine   │────>│  (HTTPS endpoint)│
+│  (create/    │     │                    │     │                  │
+│   update/    │     │  1. Match webhook  │     │  Verify signature│
+│   delete)    │     │  2. Evaluate filter│     │  Process payload │
+│              │     │  3. Sign payload   │     │                  │
+└──────────────┘     └────────────────────┘     └──────────────────┘
+```
+
+## Webhook Configuration
+
+Each webhook is defined with:
+
+| Field        | Type     | Required | Description                                                         |
+| ------------ | -------- | -------- | ------------------------------------------------------------------- |
+| `url`        | string   | Yes      | Destination URL (max 2048 chars). HTTPS required in production.     |
+| `collection` | string   | Yes      | Collection to watch (max 100 chars)                                 |
+| `events`     | string[] | Yes      | Events to fire on: `"create"`, `"update"`, `"delete"`               |
+| `secret`     | string   | No       | HMAC signing secret. Auto-generated (64 hex chars) if not provided. |
+| `filter`     | string   | No       | Rule expression to conditionally fire                               |
+| `headers`    | object   | No       | Custom HTTP headers to include in deliveries                        |
+| `enabled`    | boolean  | No       | Active status (default: `true`)                                     |
+
+### Event Types
+
+| Event    | Fires When                                |
+| -------- | ----------------------------------------- |
+| `create` | A new record is created in the collection |
+| `update` | An existing record is updated             |
+| `delete` | A record is deleted                       |
+
+## Delivery Payload
+
+Every webhook delivery sends a JSON POST request with this structure:
+
+```json
+{
+  "event": "records.create",
+  "collection": "orders",
+  "record": {
+    "id": "abc-123",
+    "status": "pending",
+    "total": 99.99,
+    "created_at": "2025-01-15T10:30:00Z"
+  },
+  "previous": null,
+  "timestamp": "2025-01-15T10:30:01Z",
+  "webhook_id": "wh-uuid",
+  "account_id": "AB1234"
+}
+```
+
+- **`record`**: The current state of the record (null for delete events)
+- **`previous`**: The previous state (only present for `update` and `delete` events)
+
+## Security
+
+### HMAC-SHA256 Signing
+
+Every delivery includes a signature header for verification:
+
+```
+X-SnackBase-Signature: sha256=a1b2c3d4e5f6...
+```
+
+The signature is computed as `HMAC-SHA256(secret, request_body)`. To verify on your server:
+
+```python
+import hmac
+import hashlib
+
+def verify_signature(payload: bytes, secret: str, signature_header: str) -> bool:
+    expected = "sha256=" + hmac.new(
+        secret.encode(), payload, hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(expected, signature_header)
+```
+
+<Warning>
+  The webhook secret is only returned once -- when the webhook is created. Store
+  it securely.
+</Warning>
+
+### Additional Headers
+
+Every delivery also includes:
+
+| Header                   | Description                         |
+| ------------------------ | ----------------------------------- |
+| `Content-Type`           | `application/json`                  |
+| `X-SnackBase-Signature`  | HMAC-SHA256 signature               |
+| `X-SnackBase-Event`      | Event type (e.g., `records.create`) |
+| `X-SnackBase-Webhook-Id` | Webhook UUID                        |
+
+### URL Validation
+
+In production, SnackBase enforces:
+
+- **HTTPS only** -- HTTP URLs are rejected
+- **No private IPs** -- Prevents SSRF attacks by blocking `127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, and IPv6 equivalents
+
+## Filter Expressions
+
+Use filter expressions to conditionally fire webhooks based on record data:
+
+```
+status = "published"
+rating >= 4.5
+category IN ["electronics", "books"]
+title ~ "Product%"
+```
+
+<Note>
+  If a filter expression fails to evaluate, the webhook fires anyway (fail-open
+  design). This prevents silent data loss.
+</Note>
+
+## Retry Logic
+
+Failed deliveries are automatically retried with exponential backoff:
+
+| Attempt   | Delay      |
+| --------- | ---------- |
+| 1st retry | 1 minute   |
+| 2nd retry | 5 minutes  |
+| 3rd retry | 30 minutes |
+| 4th retry | 2 hours    |
+| 5th retry | 12 hours   |
+
+A delivery is considered successful when it receives a 2xx HTTP response. Non-2xx responses or network errors trigger retries.
+
+### Delivery Statuses
+
+| Status      | Meaning                              |
+| ----------- | ------------------------------------ |
+| `pending`   | Not yet delivered                    |
+| `delivered` | Successfully received (2xx response) |
+| `retrying`  | Failed, scheduled for retry          |
+| `failed`    | All retry attempts exhausted         |
+
+## Testing
+
+Use the built-in test endpoint to verify your webhook setup:
+
+```bash
+curl -X POST https://api.snackbase.dev/api/v1/webhooks/{webhook_id}/test \
+  -H "Authorization: Bearer {token}"
+```
+
+This sends a test payload to your configured URL and returns the result immediately (synchronous).
+
+## Limits
+
+| Limit                     | Default                      |
+| ------------------------- | ---------------------------- |
+| Max webhooks per account  | 20 (configurable)            |
+| URL max length            | 2048 characters              |
+| Response body storage     | Truncated to 5000 characters |
+| HTTP timeout per delivery | 30 seconds                   |
+| Max retry attempts        | 5                            |
+
+## When to Use Webhooks vs Other Features
+
+| Feature                      | Best For                                        |
+| ---------------------------- | ----------------------------------------------- |
+| **Webhooks**                 | Push notifications to external services         |
+| **API-Defined Hooks**        | Internal automation (actions within SnackBase)  |
+| **Workflows**                | Multi-step processes with conditions and delays |
+| **Realtime (WebSocket/SSE)** | Client-side live updates                        |

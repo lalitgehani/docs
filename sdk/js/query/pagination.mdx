@@ -275,7 +275,9 @@ function PaginatedList() {
 
 ## Cursor-Based Pagination
 
-For large datasets, consider cursor-based pagination:
+For large or frequently-changing datasets, cursor-based pagination provides consistent results without skipping or duplicating records.
+
+### Forward Pagination
 
 ```ts
 async function getPaginatedResults(cursor: string | null = null) {
@@ -289,11 +291,34 @@ async function getPaginatedResults(cursor: string | null = null) {
 
   return {
     items: results.items,
-    nextCursor: results.cursor, // Cursor for next page
-    hasMore: results.hasMore,    // Whether there are more results
+    nextCursor: results.next_cursor,  // Cursor for next page
+    prevCursor: results.prev_cursor,  // Cursor for previous page
+    hasMore: results.has_more,        // Whether there are more results
   };
 }
 ```
+
+### Backward Pagination
+
+Use `cursor_before` to paginate backwards:
+
+```ts
+const previousPage = await client.records.list("posts", {
+  limit: 20,
+  cursor_before: currentCursor,
+});
+```
+
+### When to Use Cursor vs Offset
+
+| Approach | Best For |
+|----------|----------|
+| **Offset** (`page()`) | Small datasets, known total count, jump to specific page |
+| **Cursor** | Large datasets, real-time data, infinite scroll, consistent ordering |
+
+<Note>
+  To get the total count with cursor pagination, pass `include_count: true` in your query parameters.
+</Note>
 
 ## Performance Best Practices
 

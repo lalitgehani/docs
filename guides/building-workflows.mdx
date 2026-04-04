@@ -1,0 +1,276 @@
+---
+title: "Building Workflows"
+description: "Step-by-step guide to creating multi-step automation workflows"
+---
+
+This guide walks you through building a multi-step workflow that processes events, makes decisions, and performs actions automatically.
+
+## Prerequisites
+
+- A running SnackBase instance
+- At least one collection (we'll use `orders` in this example)
+- Familiarity with [Workflow Automation concepts](/concepts/workflows)
+
+## Building Your First Workflow
+
+<Steps>
+  <Step title="Design Your Workflow">
+    Plan the steps before creating:
+
+    ```
+    Order Created
+      └─> Check if high value (>= $500)
+            ├─ Yes: Send Slack alert
+            └─ No: Send confirmation email
+                └─> Wait 2 hours
+                    └─> Update order status to "processing"
+    ```
+  </Step>
+
+  <Step title="Create the Workflow">
+    <Tabs>
+      <Tab title="SDK">
+        ```ts
+        const workflow = await client.workflows.create({
+          name: "Order Processing",
+          trigger_type: "event",
+          trigger_config: {
+            type: "event",
+            event: "records.create",
+            collection: "orders",
+          },
+          steps: [
+            {
+              name: "check_value",
+              type: "condition",
+              config: {
+                expression: "trigger.total >= 500",
+                on_true: "high_value_alert",
+                on_false: "send_confirmation",
+              },
+            },
+            {
+              name: "high_value_alert",
+              type: "action",
+              config: {
+                action_type: "send_webhook",
+                config: {
+                  url: "https://hooks.slack.com/services/...",
+                  body_template: {
+                    text: "High-value order #{{trigger.id}}: ${{trigger.total}}",
+                  },
+                },
+              },
+            },
+            {
+              name: "send_confirmation",
+              type: "action",
+              config: {
+                action_type: "send_email",
+                config: {
+                  to: "{{trigger.customer_email}}",
+                  subject: "Order Confirmed",
+                  template_name: "order_confirmation",
+                  variables: { order_id: "{{trigger.id}}" },
+                },
+              },
+            },
+            {
+              name: "wait_before_processing",
+              type: "wait_delay",
+              config: {
+                duration: "2h",
+                next: "update_status",
+              },
+            },
+            {
+              name: "update_status",
+              type: "action",
+              config: {
+                action_type: "update_record",
+                config: {
+                  collection: "orders",
+                  record_id: "{{trigger.id}}",
+                  data: { status: "processing" },
+                },
+              },
+            },
+          ],
+        });
+        ```
+      </Tab>
+      <Tab title="cURL">
+        ```bash
+        curl -X POST https://api.snackbase.dev/api/v1/workflows \
+          -H "Authorization: Bearer {token}" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "name": "Order Processing",
+            "trigger_type": "event",
+            "trigger_config": {
+              "type": "event",
+              "event": "records.create",
+              "collection": "orders"
+            },
+            "steps": [
+              {
+                "name": "check_value",
+                "type": "condition",
+                "config": {
+                  "expression": "trigger.total >= 500",
+                  "on_true": "high_value_alert",
+                  "on_false": "send_confirmation"
+                }
+              }
+            ]
+          }'
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Test with a Manual Trigger">
+    Before relying on events, test with manual trigger:
+
+    ```ts
+    const result = await client.workflows.trigger(workflow.id, {
+      id: "test-order-1",
+      total: 750,
+      customer_email: "test@example.com",
+    });
+
+    console.log("Instance ID:", result.instance_id);
+    ```
+  </Step>
+
+  <Step title="Monitor the Instance">
+    Check the instance status and step logs:
+
+    ```ts
+    const instance = await client.workflows.getInstance(result.instance_id);
+
+    console.log("Status:", instance.status);
+    console.log("Current step:", instance.current_step);
+
+    for (const log of instance.step_logs) {
+      console.log(`  ${log.step_name} (${log.step_type}): ${log.status}`);
+      if (log.output) console.log("    Output:", log.output);
+      if (log.error_message) console.log("    Error:", log.error_message);
+    }
+    ```
+  </Step>
+
+  <Step title="Handle Failures">
+    If an instance fails, investigate and resume:
+
+    ```ts
+    // List failed instances
+    const failed = await client.workflows.listInstances(workflow.id, {
+      status: "failed",
+    });
+
+    // Resume a failed instance
+    if (failed.items.length > 0) {
+      await client.workflows.retryInstance(failed.items[0].id);
+    }
+    ```
+
+    Or cancel an instance that shouldn't continue:
+
+    ```ts
+    await client.workflows.cancelInstance(instance.id);
+    ```
+  </Step>
+</Steps>
+
+## Advanced Patterns
+
+### Webhook-Triggered Workflows
+
+Accept events from external services (e.g., Stripe, GitHub):
+
+```ts
+const workflow = await client.workflows.create({
+  name: "Stripe Payment Handler",
+  trigger_type: "webhook",
+  trigger_config: { type: "webhook" },
+  steps: [
+    {
+      name: "process_payment",
+      type: "action",
+      config: {
+        action_type: "update_record",
+        config: {
+          collection: "orders",
+          record_id: "{{trigger.metadata.order_id}}",
+          data: { payment_status: "paid" },
+        },
+      },
+    },
+  ],
+});
+
+// The webhook token is in workflow.trigger_config.token
+// External services POST to: /api/v1/workflow-webhooks/{token}
+```
+
+### Parallel Notifications
+
+Send multiple notifications simultaneously:
+
+```ts
+{
+  name: "notify_all",
+  type: "parallel",
+  config: {
+    branches: [
+      ["send_email_step"],
+      ["send_slack_step"],
+      ["update_crm_step"]
+    ]
+  }
+}
+```
+
+### Loops
+
+Process each item in a list:
+
+```ts
+{
+  name: "process_line_items",
+  type: "loop",
+  config: {
+    items: "{{trigger.line_items}}",
+    step: "process_single_item"
+  }
+}
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Workflow not triggering on events">
+    - Verify the workflow is `enabled`
+    - Check `trigger_config.event` matches the actual event
+    - If using `collection`, verify the collection name is correct
+    - Check if a `condition` in the trigger config is filtering out events
+  </Accordion>
+
+  <Accordion title="Instance stuck in 'waiting' status">
+    This is normal for `wait_delay` steps. The instance will resume automatically after the delay. You can also manually resume it via the API.
+  </Accordion>
+
+  <Accordion title="Step logs show 'failed' status">
+    Check the `error_message` in the step log. Common causes:
+    - Invalid template variable references
+    - External service unavailable (for webhook actions)
+    - Record not found (for update/delete actions)
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+- [Workflow Automation Concept](/concepts/workflows) -- full reference
+- [Workflows API Reference](/api-reference/endpoints/workflows/create-workflow) -- all endpoints
+- [Workflows SDK Reference](/sdk/js/services/workflows) -- SDK methods

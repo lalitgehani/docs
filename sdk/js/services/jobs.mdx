@@ -1,0 +1,87 @@
+---
+title: "Jobs Service"
+description: "Monitor and manage background jobs (superadmin only)"
+---
+
+The Jobs service provides superadmin access to the background job queue, allowing you to monitor job status, view statistics, retry failed jobs, and cancel pending ones.
+
+<Warning>
+  All Jobs API endpoints require **superadmin** authentication.
+</Warning>
+
+## Overview
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+});
+
+// Access the jobs service
+const jobs = client.jobs;
+```
+
+## Get Job Statistics
+
+View aggregate counts across all job statuses:
+
+```ts
+const stats = await client.jobs.stats();
+
+console.log(stats.pending); // jobs waiting to execute
+console.log(stats.running); // currently executing
+console.log(stats.completed); // finished successfully
+console.log(stats.failed); // execution failed
+console.log(stats.retrying); // waiting to retry
+console.log(stats.dead); // retries exhausted
+console.log(stats.failure_rate); // (failed + dead) / (completed + failed + dead)
+```
+
+## List Jobs
+
+```ts
+const result = await client.jobs.list();
+// result.items - array of jobs
+// result.total - total count
+```
+
+With filters:
+
+```ts
+const result = await client.jobs.list({
+  status: "failed",
+  queue: "default",
+  handler: "webhook_delivery",
+  limit: 50,
+  offset: 0,
+});
+
+for (const job of result.items) {
+  console.log(job.handler); // "webhook_delivery", "send_email", etc.
+  console.log(job.status); // "pending", "running", "completed", "failed", "retrying", "dead"
+  console.log(job.attempt_number);
+  console.log(job.error_message);
+}
+```
+
+## Retry a Job
+
+Manually retry a `dead`, `failed`, or `retrying` job. This resets it to `pending` with `attempt_number` reset to 0:
+
+```ts
+const job = await client.jobs.retry("job-id");
+console.log(job.status); // "pending"
+```
+
+## Cancel a Job
+
+Cancel a `pending` job:
+
+```ts
+await client.jobs.cancel("job-id");
+```
+
+<Note>
+  Only jobs in `pending` status can be cancelled. Jobs that are already running, completed, or failed cannot be cancelled.
+</Note>

@@ -1,0 +1,169 @@
+---
+title: "Background Jobs"
+description: "Asynchronous job execution engine for reliable background processing"
+---
+
+SnackBase includes a **background job engine** that powers reliable asynchronous execution for webhooks, scheduled hooks, workflow delays, and email delivery. Jobs are managed by superadmins through the Admin API.
+
+## Overview
+
+The job system is the execution substrate that other automation features build on:
+
+- **Webhook deliveries** are dispatched as jobs with automatic retries
+- **Scheduled hooks** are executed via jobs on their cron schedule
+- **Workflow delays** (`wait_delay` steps) enqueue resume jobs
+- **Email sending** is handled by background jobs
+
+### Key Features
+
+- **Priority Queue**: Jobs execute in priority order (lower number = higher priority)
+- **Automatic Retries**: Failed jobs retry with exponential backoff
+- **Stale Job Recovery**: Jobs stuck in `running` state are automatically recovered
+- **Job Statistics**: Aggregate counts by status with failure rate
+- **Retention Cleanup**: Completed jobs are automatically purged after a configurable period
+
+## Job Lifecycle
+
+```
+pending ──> running ──> completed
+                   ├──> failed ──> retrying ──> running (retry)
+                   │                        └──> dead (retries exhausted)
+                   └──> (cancelled by admin, only from pending)
+```
+
+### Job Statuses
+
+| Status | Meaning |
+|--------|---------|
+| `pending` | Queued, waiting to execute |
+| `running` | Currently executing |
+| `completed` | Finished successfully |
+| `failed` | Execution failed (may retry) |
+| `retrying` | Waiting to retry after failure |
+| `dead` | All retry attempts exhausted |
+
+## Retry Logic
+
+Failed jobs retry automatically with exponential backoff:
+
+```
+delay = retry_delay_seconds * 2^attempt_number
+```
+
+| Attempt | Delay (default base: 60s) |
+|---------|--------------------------|
+| 1st retry | 60 seconds |
+| 2nd retry | 120 seconds |
+| 3rd retry | 240 seconds |
+
+Default `max_retries` is 3. Once exhausted, the job transitions to `dead`.
+
+## Built-in Job Handlers
+
+| Handler | Purpose |
+|---------|---------|
+| `webhook_delivery` | Deliver outbound webhook payloads |
+| `send_email` | Send emails via the configured provider |
+| `scheduled_task` | Execute scheduled tasks |
+| `workflow_resume` | Resume a workflow instance after a `wait_delay` |
+| `scheduled_hook` | Execute a scheduled API-defined hook's actions |
+
+## Admin API
+
+<Note>
+  The Jobs API is restricted to **superadmins only**. It provides a system-wide view across all accounts.
+</Note>
+
+### Job Statistics
+
+Get aggregate counts and failure rate:
+
+```bash
+curl https://api.snackbase.dev/api/v1/admin/jobs/stats \
+  -H "Authorization: Bearer {superadmin_token}"
+```
+
+Response:
+
+```json
+{
+  "pending": 12,
+  "running": 3,
+  "completed": 1547,
+  "failed": 8,
+  "retrying": 2,
+  "dead": 1,
+  "avg_duration_seconds": null,
+  "failure_rate": 0.0058
+}
+```
+
+The `failure_rate` is calculated as `(failed + dead) / (completed + failed + dead)`.
+
+### List Jobs
+
+Filter by status, queue, or handler:
+
+```bash
+curl "https://api.snackbase.dev/api/v1/admin/jobs?status=failed&handler=webhook_delivery" \
+  -H "Authorization: Bearer {superadmin_token}"
+```
+
+### Retry a Job
+
+Manually retry a `dead`, `failed`, or `retrying` job:
+
+```bash
+curl -X POST https://api.snackbase.dev/api/v1/admin/jobs/{job_id}/retry \
+  -H "Authorization: Bearer {superadmin_token}"
+```
+
+This resets the job to `pending` with `attempt_number` reset to 0.
+
+### Cancel a Job
+
+Cancel a `pending` job (only pending jobs can be cancelled):
+
+```bash
+curl -X DELETE https://api.snackbase.dev/api/v1/admin/jobs/{job_id} \
+  -H "Authorization: Bearer {superadmin_token}"
+```
+
+## Job Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | UUID |
+| `queue` | string | Queue name (default: `"default"`) |
+| `handler` | string | Registered handler identifier |
+| `payload` | object | JSON payload passed to handler |
+| `status` | string | Current job status |
+| `priority` | integer | Execution priority (lower = higher, default: 0) |
+| `run_at` | datetime | Earliest execution time (null = immediately) |
+| `started_at` | datetime | When execution began |
+| `completed_at` | datetime | When completed successfully |
+| `failed_at` | datetime | When last failed |
+| `error_message` | string | Most recent error (truncated to ~5000 chars) |
+| `attempt_number` | integer | Attempts made so far |
+| `max_retries` | integer | Max retry attempts (default: 3) |
+| `retry_delay_seconds` | integer | Base retry delay (default: 60) |
+| `account_id` | string | Account context (null for system jobs) |
+| `created_by` | string | User who enqueued (null for system jobs) |
+
+## Worker Configuration
+
+The job worker is configured via application settings:
+
+| Setting | Description |
+|---------|-------------|
+| `job_worker_poll_interval` | How often the worker checks for new jobs (seconds) |
+| `job_execution_timeout` | Maximum execution time per job (seconds) |
+| `job_retention_days` | How long to keep completed jobs before cleanup |
+
+### Graceful Shutdown
+
+When the worker shuts down, any currently running job is reset to `pending` so it can be picked up again.
+
+### Stale Job Recovery
+
+Jobs stuck in `running` state longer than the execution timeout are automatically recovered and reset to `pending`.

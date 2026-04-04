@@ -1,0 +1,264 @@
+---
+title: "Creating Custom Endpoints"
+description: "Step-by-step guide to building serverless-like HTTP endpoints"
+---
+
+This guide walks you through creating custom HTTP endpoints that execute action pipelines -- without writing backend code.
+
+## Prerequisites
+
+- A running SnackBase instance
+- At least one collection with data
+- Familiarity with [Custom Endpoints concepts](/concepts/custom-endpoints)
+
+## Building Your First Endpoint
+
+<Steps>
+  <Step title="Design Your Endpoint">
+    Plan what the endpoint does:
+
+    ```
+    GET /api/v1/x/customers/:customer_id/summary
+      1. Query recent orders for this customer
+      2. Calculate total spend
+      3. Return combined summary
+    ```
+  </Step>
+
+  <Step title="Create the Endpoint">
+    <Tabs>
+      <Tab title="SDK">
+        ```ts
+        const endpoint = await client.endpoints.create({
+          name: "Customer Summary",
+          path: "/customers/:customer_id/summary",
+          method: "GET",
+          auth_required: true,
+          actions: [
+            {
+              type: "query_records",
+              config: {
+                collection: "orders",
+                filter: "customer_id = '{{request.params.customer_id}}'",
+                sort: "-created_at",
+                limit: 5,
+              },
+            },
+            {
+              type: "aggregate_records",
+              config: {
+                collection: "orders",
+                function: "sum",
+                field: "total",
+                filter: "customer_id = '{{request.params.customer_id}}'",
+              },
+            },
+            {
+              type: "transform",
+              config: {
+                output: {
+                  recent_orders: "{{actions[0].result}}",
+                  lifetime_spend: "{{actions[1].result}}",
+                },
+              },
+            },
+          ],
+          response_template: {
+            status: 200,
+            body: "{{actions[2].result}}",
+          },
+        });
+        ```
+      </Tab>
+      <Tab title="cURL">
+        ```bash
+        curl -X POST https://api.snackbase.dev/api/v1/endpoints \
+          -H "Authorization: Bearer {token}" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "name": "Customer Summary",
+            "path": "/customers/:customer_id/summary",
+            "method": "GET",
+            "auth_required": true,
+            "actions": [
+              {
+                "type": "query_records",
+                "config": {
+                  "collection": "orders",
+                  "filter": "customer_id = '\''{{request.params.customer_id}}'\''",
+                  "sort": "-created_at",
+                  "limit": 5
+                }
+              }
+            ]
+          }'
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Test the Endpoint">
+    Call your new endpoint:
+
+    ```bash
+    curl https://api.snackbase.dev/api/v1/x/customers/cust-123/summary \
+      -H "Authorization: Bearer {token}"
+    ```
+
+    Expected response:
+
+    ```json
+    {
+      "recent_orders": [...],
+      "lifetime_spend": { "value": 2450.00 }
+    }
+    ```
+  </Step>
+
+  <Step title="Add Authorization">
+    Use a condition expression to restrict access:
+
+    ```ts
+    const endpoint = await client.endpoints.update(endpoint.id, {
+      condition: "@has_role('admin') or auth.user_id = request.params.customer_id",
+    });
+    ```
+
+    If the condition evaluates to `false`, the endpoint returns 403 Forbidden.
+  </Step>
+
+  <Step title="Monitor Execution History">
+    Track how your endpoint is being used:
+
+    ```ts
+    const executions = await client.endpoints.listExecutions(endpoint.id);
+
+    for (const exec of executions.items) {
+      console.log(`${exec.status} - ${exec.duration_ms}ms`);
+    }
+    ```
+  </Step>
+</Steps>
+
+## More Examples
+
+### Form Submission Endpoint
+
+Accept form data and create a record:
+
+```ts
+await client.endpoints.create({
+  name: "Submit Feedback",
+  path: "/submit-feedback",
+  method: "POST",
+  auth_required: false, // Public endpoint
+  actions: [
+    {
+      type: "create_record",
+      config: {
+        collection: "feedback",
+        data: {
+          message: "{{request.body.message}}",
+          email: "{{request.body.email}}",
+          submitted_at: "{{now}}",
+        },
+      },
+    },
+  ],
+  response_template: {
+    status: 201,
+    body: { message: "Thank you for your feedback!" },
+  },
+});
+```
+
+### Dashboard Data Endpoint
+
+Aggregate data for a dashboard:
+
+```ts
+await client.endpoints.create({
+  name: "Sales Dashboard",
+  path: "/dashboard/sales",
+  method: "GET",
+  auth_required: true,
+  condition: "@has_role('admin')",
+  actions: [
+    {
+      type: "aggregate_records",
+      config: {
+        collection: "orders",
+        function: "count",
+        filter: "status = 'completed'",
+      },
+    },
+    {
+      type: "aggregate_records",
+      config: {
+        collection: "orders",
+        function: "sum",
+        field: "total",
+        filter: "status = 'completed'",
+      },
+    },
+    {
+      type: "aggregate_records",
+      config: {
+        collection: "orders",
+        function: "sum",
+        field: "total",
+        filter: "status = 'completed'",
+        group_by: "category",
+      },
+    },
+    {
+      type: "transform",
+      config: {
+        output: {
+          total_orders: "{{actions[0].result}}",
+          total_revenue: "{{actions[1].result}}",
+          revenue_by_category: "{{actions[2].result}}",
+        },
+      },
+    },
+  ],
+  response_template: {
+    status: 200,
+    body: "{{actions[3].result}}",
+  },
+});
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="404 when calling the endpoint">
+    - Verify the endpoint is `enabled`
+    - Check the URL format: `/api/v1/x/{path}` (note the `/x/` prefix)
+    - Confirm the HTTP method matches (GET, POST, etc.)
+    - Check path parameter syntax uses `:param` format
+  </Accordion>
+
+  <Accordion title="403 Forbidden">
+    - The `condition` expression evaluated to `false`
+    - If `auth_required` is `true`, ensure you're sending a valid auth token
+  </Accordion>
+
+  <Accordion title="409 Conflict on creation">
+    - Another endpoint with the same `path` and `method` already exists
+    - Each (path, method) combination must be unique per account
+  </Accordion>
+
+  <Accordion title="Actions timing out">
+    Endpoints have a 30-second execution timeout. If your action pipeline is complex, consider:
+    - Reducing query `limit` values
+    - Simplifying filter expressions
+    - Breaking complex logic into separate endpoints
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+- [Custom Endpoints Concept](/concepts/custom-endpoints) -- full reference
+- [Endpoints API Reference](/api-reference/endpoints/custom-endpoints/create-endpoint) -- all endpoints
+- [Endpoints SDK Reference](/sdk/js/services/endpoints) -- SDK methods

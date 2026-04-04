@@ -1,0 +1,109 @@
+---
+title: "Webhooks Service"
+description: "Manage outbound webhooks and delivery history"
+---
+
+The Webhooks service allows you to create, manage, and monitor outbound webhooks that send HTTP notifications to external services when data changes.
+
+## Overview
+
+```ts
+import { SnackBaseClient } from "@snackbase/sdk";
+
+const client = new SnackBaseClient({
+  baseUrl: "https://api.example.com",
+});
+
+// Access the webhooks service
+const webhooks = client.webhooks;
+```
+
+## List Webhooks
+
+```ts
+const result = await client.webhooks.list();
+// result.items - array of webhooks
+// result.total - total count
+```
+
+With pagination:
+
+```ts
+const result = await client.webhooks.list({
+  limit: 20,
+  offset: 0,
+});
+```
+
+## Get a Webhook
+
+```ts
+const webhook = await client.webhooks.get("webhook-id");
+```
+
+## Create a Webhook
+
+```ts
+const webhook = await client.webhooks.create({
+  url: "https://your-server.com/webhook",
+  collection: "orders",
+  events: ["create", "update"],
+  headers: {
+    "X-Custom-Header": "value",
+  },
+});
+
+// IMPORTANT: Save the secret - it's only returned on creation
+console.log(webhook.secret);
+```
+
+<Warning>
+  The `secret` field is only included in the response when creating a webhook. Store it securely for signature verification.
+</Warning>
+
+## Update a Webhook
+
+```ts
+const updated = await client.webhooks.update("webhook-id", {
+  url: "https://new-server.com/webhook",
+  events: ["create", "update", "delete"],
+  enabled: true,
+});
+```
+
+## Delete a Webhook
+
+```ts
+await client.webhooks.delete("webhook-id");
+```
+
+## Test a Webhook
+
+Send a test payload to verify your webhook endpoint:
+
+```ts
+const result = await client.webhooks.test("webhook-id");
+
+console.log(result.success); // boolean
+console.log(result.status_code); // HTTP status code
+console.log(result.response_body); // response body (truncated)
+console.log(result.error); // error message if failed
+```
+
+## List Deliveries
+
+View the delivery history for a webhook:
+
+```ts
+const deliveries = await client.webhooks.listDeliveries("webhook-id", {
+  limit: 50,
+  offset: 0,
+});
+
+for (const delivery of deliveries.items) {
+  console.log(delivery.event); // "records.create"
+  console.log(delivery.status); // "delivered", "failed", "retrying", "pending"
+  console.log(delivery.response_status); // 200
+  console.log(delivery.attempt_number); // 1
+}
+```
