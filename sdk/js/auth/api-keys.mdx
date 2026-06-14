@@ -108,7 +108,7 @@ const client = new SnackBaseClient({
 app.get("/posts", async (req, res) => {
   try {
     const posts = await client.records.list("posts", {
-      filter: { status: "published" },
+      filter: 'status = "published"',
       limit: 10,
     });
     res.json(posts);
@@ -142,7 +142,7 @@ const client = new SnackBaseClient({
 
 export default async function PostsPage() {
   const posts = await client.records.list("posts", {
-    filter: { status: "published" },
+    filter: 'status = "published"',
   });
 
   return (
@@ -174,7 +174,7 @@ async function cleanupOldRecords() {
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
   const oldRecords = await client.records.list("logs", {
-    filter: { createdAt: `< ${thirtyDaysAgo.toISOString()}` },
+    filter: `createdAt < "${thirtyDaysAgo.toISOString()}"`,
   });
 
   for (const record of oldRecords.items) {

@@ -37,7 +37,7 @@ console.log(result.limit);  // Page size
 
 ```ts
 const result = await client.records.list("posts", {
-  filter: { status: "published" },
+  filter: 'status = "published"',
 });
 ```
 
@@ -76,7 +76,7 @@ const result = await client.records.list("posts", {
 
 ```ts
 const result = await client.records.list("posts", {
-  filter: { status: "published" },
+  filter: 'status = "published"',
   sort: "-createdAt",
   skip: 0,
   limit: 20,
@@ -312,7 +312,7 @@ List records from a collection.
 **Parameters:**
 - `collection` (string) - Collection name
 - `params` (object) - Query parameters
-  - `filter` (object) - Filter expression
+  - `filter` (string) - Filter expression, such as `status = "published"`
   - `sort` (string) - Sort expression
   - `skip` (number) - Records to skip
   - `limit` (number) - Max records to return

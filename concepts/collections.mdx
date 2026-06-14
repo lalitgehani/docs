@@ -370,27 +370,45 @@ Content-Type: application/json
 
 ### Query Filtering
 
-List endpoints support powerful filtering:
+List endpoints support filtering through the `filter` query parameter. Direct field query parameters such as `?status=published` are not supported and return `400`.
 
 ```bash
 # Basic filtering
-GET /api/v1/records/posts?status=published
+GET /api/v1/records/posts?filter=status = "published"
 
 # Multiple filters
-GET /api/v1/records/posts?status=published&views.gt=100
+GET /api/v1/records/posts?filter=status = "published" && views > 100
 
 # Sorting
 GET /api/v1/records/posts?sort=-created_at
 
 # Pagination
-GET /api/v1/records/posts?page=1&limit=20
+GET /api/v1/records/posts?skip=0&limit=20
 
-# Full text search (if configured)
-GET /api/v1/records/posts?q=hello
+# Text pattern matching
+GET /api/v1/records/posts?filter=title ~ "%hello%"
 
 # Date range filtering
-GET /api/v1/records/posts?created_at.gte=2025-01-01T00:00:00Z
+GET /api/v1/records/posts?filter=created_at >= "2025-01-01T00:00:00Z"
 ```
+
+For curl, prefer `--get --data-urlencode` so spaces, quotes, and `%` wildcards are encoded correctly:
+
+```bash
+curl --get http://localhost:8000/api/v1/records/posts \
+  --data-urlencode 'filter=status = "published" && views > 100' \
+  -H "Authorization: Bearer <token>"
+```
+
+An encoded URL form of the text match example is:
+
+```text
+/api/v1/records/posts?filter=title%20~%20%22%25hello%25%22
+```
+
+The `~` operator maps to SQL `LIKE`, so include `%` wildcards explicitly for contains-style matching. For example, use `title ~ "%hello%"`, not `title ~ "hello"`.
+
+Full-text search through `q` is not currently implemented for `GET /api/v1/records/{collection}`. Treat `q` search as future work that needs a separate design for indexing, permissions, pagination, and ranking.
 
 ## PII Masking
 

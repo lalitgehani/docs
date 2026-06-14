@@ -31,10 +31,7 @@ const results = await client.records
 const results2 = await client.records.list("posts", {
   fields: ["id", "title", "author.name"],
   expand: ["author", "comments"],
-  filter: {
-    status: "published",
-    createdAt: "> 2024-01-01",
-  },
+  filter: 'status = "published" && createdAt > "2024-01-01"',
   sort: "-createdAt",
   skip: 0,
   limit: 20,

@@ -216,12 +216,45 @@ curl -X POST http://localhost:8000/api/v1/records/posts \
 | `limit`   | int  | 30            | &gt;= 1, &lt;= 100        |
 | `sort`    | str  | "-created_at" | +/- prefix for asc/desc    |
 | `fields`  | str  | null          | Comma-separated field list |
-| Field name | any  | -             | Filter by field value      |
+| `filter`  | str  | null          | SnackBase filter expression |
+| `cursor` | str | null | Forward cursor token |
+| `cursor_before` | str | null | Backward cursor token |
+| `include_count` | bool | false | Include total with cursor pagination |
 
 ```bash
 curl -X GET "http://localhost:8000/api/v1/records/posts?skip=0&limit=10" \
   -H "Authorization: Bearer <token>"
 ```
+
+```bash
+# Sort newest records first
+curl -X GET "http://localhost:8000/api/v1/records/posts?sort=-created_at&skip=0&limit=10" \
+  -H "Authorization: Bearer <token>"
+
+# Limit response fields
+curl -X GET "http://localhost:8000/api/v1/records/posts?fields=id,title,created_at" \
+  -H "Authorization: Bearer <token>"
+
+# Filter by a boolean field
+curl --get http://localhost:8000/api/v1/records/posts \
+  --data-urlencode 'filter=published = true' \
+  -H "Authorization: Bearer <token>"
+
+# Text pattern matching. The ~ operator maps to SQL LIKE, so include % wildcards.
+curl --get http://localhost:8000/api/v1/records/posts \
+  --data-urlencode 'filter=name ~ "%keyword%"' \
+  -H "Authorization: Bearer <token>"
+
+# Cursor pagination
+curl -X GET "http://localhost:8000/api/v1/records/posts?cursor=NEXT_CURSOR&limit=10&include_count=true" \
+  -H "Authorization: Bearer <token>"
+```
+
+<Note>
+  Use the `filter` parameter for record filtering. Direct field query parameters
+  such as `?published=true` are rejected with `400`. Fields named like internal
+  joined tables, such as `name`, are supported in filter expressions.
+</Note>
 
 **Response**:
 

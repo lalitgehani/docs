@@ -325,10 +325,10 @@ type FilterOperator =
   | "&gt;="  // Greater than or equal
   | "&lt;"   // Less than
   | "&lt;="  // Less than or equal
-  | "~"   // Contains
-  | "!~"  // Does not contain
-  | "?="  // Is empty
-  | "?!"; // Is not empty
+  | "~"   // SQL LIKE pattern match
+  | "IN"  // In a list of values
+  | "IS NULL"
+  | "IS NOT NULL";
 ```
 
 ---

@@ -316,7 +316,7 @@ function LivePostFeed() {
   useEffect(() => {
     async function loadPosts() {
       const result = await client.records.list<Post>("posts", {
-        filter: { status: "published" },
+        filter: 'status = "published"',
         sort: "-createdAt",
         limit: 50,
       });

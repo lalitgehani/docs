@@ -26,10 +26,10 @@ const results = await client.records
 | `>=`     | Greater than or equal      | `filter("views", ">=", 100)` |
 | `<`      | Less than                  | `filter("views", "<", 1000)` |
 | `<=`     | Less than or equal         | `filter("views", "<=", 1000)` |
-| `~`      | Contains (text search)     | `filter("title", "~", "tutorial")` |
-| `!~`     | Does not contain           | `filter("title", "!~", "draft")` |
-| `?=`     | Is empty/null              | `filter("excerpt", "?=")` |
-| `?!`     | Is not empty/null          | `filter("excerpt", "?!=")` |
+| `~`      | SQL `LIKE` pattern match   | `filter("title", "~", "%tutorial%")` |
+| `IN`     | Value is in a list         | `filter("status", "IN", ["published", "featured"])` |
+| `IS NULL` | Is null                   | `filter("excerpt", "IS NULL")` |
+| `IS NOT NULL` | Is not null           | `filter("excerpt", "IS NOT NULL")` |
 
 ## String Filtering
 
@@ -40,18 +40,14 @@ const results = await client.records
   .filter("status", "=", "published")
   .get();
 
-// Contains text
+// Pattern match with SQL LIKE
 const results = await client.records
   .query("posts")
-  .filter("title", "~", "tutorial")
-  .get();
-
-// Does not contain
-const results = await client.records
-  .query("posts")
-  .filter("title", "!~", "draft")
+  .filter("title", "~", "%tutorial%")
   .get();
 ```
+
+The `~` operator maps to SQL `LIKE`, so include `%` wildcards explicitly for contains-style matching.
 
 ## Number Filtering
 
@@ -102,10 +98,10 @@ const activePosts = await client.records
   .filter("isPublished", "=", true)
   .get();
 
-// Is false/null
+// Is null
 const draftPosts = await client.records
   .query("posts")
-  .filter("isPublished", "?=")
+  .filter("publishedAt", "IS NULL")
   .get();
 ```
 
@@ -187,13 +183,13 @@ const results = await client.records
 
 ## Case Sensitivity
 
-Text filters are case-insensitive by default:
+The `~` operator uses SQL `LIKE` pattern matching:
 
 ```ts
-// Matches "Tutorial", "TUTORIAL", "tutorial", etc.
+// Matches values that contain "tutorial"
 const results = await client.records
   .query("posts")
-  .filter("title", "~", "tutorial")
+  .filter("title", "~", "%tutorial%")
   .get();
 ```
 
@@ -205,13 +201,13 @@ Check for null/empty values:
 // Is null
 const postsWithoutExcerpt = await client.records
   .query("posts")
-  .filter("excerpt", "?=")
+  .filter("excerpt", "IS NULL")
   .get();
 
 // Is not null
 const postsWithExcerpt = await client.records
   .query("posts")
-  .filter("excerpt", "?!")
+  .filter("excerpt", "IS NOT NULL")
   .get();
 ```
 
@@ -274,7 +270,7 @@ async function searchPosts() {
     .filter("status", "=", "published")
     .filter("createdAt", ">=", "2024-01-01")
     .filter("createdAt", "<", "2025-01-01")
-    .filter("title", "~", "tutorial")
+    .filter("title", "~", "%tutorial%")
     .sort("createdAt", "desc")
     .page(1, 20)
     .get();

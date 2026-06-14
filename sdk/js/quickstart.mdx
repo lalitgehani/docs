@@ -72,7 +72,7 @@ console.log("Items:", posts.items);
 
 // With filtering and sorting
 const publishedPosts = await client.records.list("posts", {
-  filter: { status: "published" },
+  filter: 'status = "published"',
   sort: "-createdAt",
   limit: 10,
 });
