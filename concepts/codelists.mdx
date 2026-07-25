@@ -28,9 +28,9 @@ per account using overrides.
 | **Override** | Per-account delta only: visibility (hide), default, sort, metadata merge. Never copies values. |
 | **Effective values** | Merge of system values + account extensions (if extensible) − hidden + labels. |
 
-## Builtin example: `regions`
+## Example: a `regions` catalog (operator-created)
 
-After migrate, the platform seeds:
+Operators (or product seeds such as control-plane) may create catalogs, for example:
 
 - Codelist `regions` (`is_builtin=true`, `is_extensible=false`)
 - Value `eu-01` with EN label **EU Central (Germany)** and metadata

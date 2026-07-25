@@ -18,9 +18,9 @@ SnackBase enables **Software-as-a-Service (SaaS)** applications by allowing mult
 | **Account Scope** | All data (users, collections, records) scoped to `account_id` |
 | **Cross-Account Access** | Not possible by design (enforced at database and API levels) |
 
-For **shared reference data** that must not be fan-out copied into every tenant
-(e.g. cloud regions), use first-class [Codelists](/concepts/codelists) with
-system scope and per-account overrides instead of per-account collection rows.
+For **shared reference data** (enums, status dictionaries), prefer first-class
+[Codelists](/concepts/codelists) with system scope and per-account overrides
+rather than copying rows into every tenant collection.
 
 ## Account Model
 
