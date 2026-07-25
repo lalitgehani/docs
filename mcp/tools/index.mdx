@@ -3,27 +3,37 @@ title: "Tools Reference"
 description: "Complete reference for all SnackBase MCP tools"
 ---
 
-The SnackBase MCP server provides 15 tools covering all major SnackBase operations. Each tool supports multiple actions for CRUD operations and queries.
+The SnackBase MCP server provides **21** tools covering core admin, data, and automation operations. Each tool supports multiple actions. Auth is **API-key only** via `SNACKBASE_URL` / `SNACKBASE_API_KEY`.
 
 ## Tool Overview
 
 | Tool | Actions | Description |
 |------|---------|-------------|
 | [`snackbase_collections`](#collections) | list, list_names, get, create, update, delete, export, import | Manage collection schemas |
-| [`snackbase_records`](#records) | list, get, create, update, patch, delete | CRUD operations on records |
+| [`snackbase_records`](#records) | list, get, create, update, patch, delete, batchCreate, batchUpdate, batchDelete, aggregate | CRUD / batch / aggregate (`include_count` on list) |
 | [`snackbase_collection_rules`](#collection-rules) | get, update, validate, test | Configure access control |
-| [`snackbase_users`](#users) | list, get, create, update, delete, set_password, verify_email | User management |
+| [`snackbase_users`](#users) | list, get, create, update, delete, set_password, verify_email, resend_verification | User management (`role_id` on create) |
 | [`snackbase_groups`](#groups) | list, get, create, update, delete, add_member, remove_member | Group management |
 | [`snackbase_roles`](#roles) | list, get, create, update, delete | Role-based access control |
 | [`snackbase_accounts`](#accounts) | list, get, create, update, delete, get_users | Multi-tenant accounts |
-| [`snackbase_invitations`](#invitations) | list, create, resend, cancel | User invitations |
-| [`snackbase_api_keys`](#api-keys) | list, create, revoke | API key management |
-| [`snackbase_admin`](#admin) | get_stats, get_recent, list_system, list_account, get_values, update_values, create, list_providers, test_connection | Admin operations |
-| [`snackbase_dashboard`](#dashboard) | get_stats | Dashboard metrics |
+| [`snackbase_invitations`](#invitations) | list, create, resend, cancel | Admin invitations (`status_filter` on list) |
+| [`snackbase_api_keys`](#api-keys) | list, get, create, revoke | API key management |
+| [`snackbase_admin`](#admin) | get_stats, get_recent, list_system, list_account, get_values, update_values, update_status, create, delete, list_providers, get_provider_schema, test_connection, set_default, unset_default | Admin configurations |
+| [`snackbase_dashboard`](#dashboard) | get_stats | Dashboard metrics (`range`: 7d/30d/90d) |
 | [`snackbase_audit_logs`](#audit-logs) | list, get, export | Audit log access |
-| [`snackbase_email_templates`](#email-templates) | list, get, update, render, send_test, list_logs | Email management |
-| [`snackbase_macros`](#macros) | list, get, create, update, delete, test | SQL macro operations |
+| [`snackbase_email_templates`](#email-templates) | list, get, update, render, send_test, list_logs, get_log | Email management |
+| [`snackbase_macros`](#macros) | list, get, create, update, delete, test | SQL macro operations (`params` string[]) |
 | [`snackbase_migrations`](#migrations) | list, get_current, get_history | Migration status |
+| [`snackbase_webhooks`](#webhooks) | list, get, create, update, delete, test, list_deliveries | Outbound webhooks (create needs `url`, `collection`, `events`) |
+| [`snackbase_hooks`](#hooks) | list, get, create, update, delete, toggle, trigger, list_executions | Event/schedule/manual hooks |
+| [`snackbase_endpoints`](#endpoints) | list, get, create, update, delete, toggle, list_executions | Custom HTTP endpoints |
+| [`snackbase_workflows`](#workflows) | list, get, create, update, delete, toggle, trigger, list_instances, get_instance, cancel_instance, retry_instance, resume_instance | Workflows + instances |
+| [`snackbase_jobs`](#jobs) | list, stats, retry, cancel | Job queue (**superadmin**) |
+| [`snackbase_files`](#files) | get_download_url, delete | File URL + delete (upload not exposed) |
+
+<Note>
+**Not MCP tools:** interactive auth, realtime streams, `records.query`, invitation `accept`/`getPublic`, file upload. Use the JS SDK or Admin UI.
+</Note>
 
 ---
 
@@ -1068,6 +1078,108 @@ Get migration history.
 <Note>
 The MCP server provides read-only access to migrations. To apply migrations, use the SnackBase CLI: `snackbase migrate up`
 </Note>
+
+---
+
+## Webhooks
+
+**Tool Name**: `snackbase_webhooks`
+
+Outbound collection webhooks (account-scoped). Create returns a **secret once** — store it securely. `list` has no pagination; `list_deliveries` uses `limit`/`offset`.
+
+### Actions
+
+#### `create`
+Requires `url`, `collection`, and `events` (no `name` field).
+
+```json
+{
+  "action": "create",
+  "url": "https://example.com/hooks",
+  "collection": "posts",
+  "events": ["record.create", "record.update"],
+  "enabled": true
+}
+```
+
+#### `list` / `get` / `update` / `delete` / `test` / `list_deliveries`
+Standard lifecycle plus delivery history for a `webhook_id`.
+
+---
+
+## Hooks
+
+**Tool Name**: `snackbase_hooks`
+
+Event-driven, scheduled, or manual server-side automation. Create requires `name` and `trigger` (`schedule` | `event` | `manual`). Pagination: `limit`/`offset`.
+
+### Actions
+
+`list`, `get`, `create`, `update`, `delete`, `toggle`, `trigger`, `list_executions`
+
+---
+
+## Endpoints
+
+**Tool Name**: `snackbase_endpoints`
+
+Custom HTTP endpoints (serverless-style routes). Create supports `description`, `auth_required`, `condition`, `actions`, `response_template`. Pagination: `limit`/`offset`.
+
+### Actions
+
+`list`, `get`, `create`, `update`, `delete`, `toggle`, `list_executions`
+
+---
+
+## Workflows
+
+**Tool Name**: `snackbase_workflows`
+
+Multi-step workflow definitions and instances. Instance IDs are **global** (`get_instance` / `cancel_instance` / `retry_instance` / `resume_instance` need only `instance_id`). Pagination: `limit`/`offset`.
+
+### Actions
+
+`list`, `get`, `create`, `update`, `delete`, `toggle`, `trigger`, `list_instances`, `get_instance`, `cancel_instance`, `retry_instance`, `resume_instance`
+
+---
+
+## Jobs
+
+**Tool Name**: `snackbase_jobs`
+
+Background job queue — **superadmin only**. Status filter: `pending` | `running` | `completed` | `failed` | `retrying` | `dead`. Pagination: `limit`/`offset`.
+
+### Actions
+
+`list`, `stats`, `retry`, `cancel`
+
+---
+
+## Files
+
+**Tool Name**: `snackbase_files`
+
+Download URL generation and delete by server path. **Upload is not exposed** via MCP (use the JS SDK or Admin UI).
+
+### Actions
+
+#### `get_download_url`
+
+```json
+{
+  "action": "get_download_url",
+  "path": "/account/uuid/file.png"
+}
+```
+
+#### `delete`
+
+```json
+{
+  "action": "delete",
+  "path": "/account/uuid/file.png"
+}
+```
 
 ---
 

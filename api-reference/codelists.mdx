@@ -1,0 +1,45 @@
+---
+title: "Codelists API"
+description: "REST endpoints for system and account codelists"
+---
+
+# Codelists API
+
+Base path: `/api/v1/codelists`
+
+See the [Codelists concept](/concepts/codelists) page for system vs account scope,
+effective resolution, and overrides.
+
+## Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/codelists` | Authenticated | List visible codelists |
+| POST | `/codelists` | Admin / superadmin | Create codelist |
+| GET | `/codelists/{code}` | Authenticated | Codelist metadata |
+| PATCH | `/codelists/{code}` | Admin / superadmin | Update metadata |
+| DELETE | `/codelists/{code}` | Admin / superadmin | Soft-deactivate (or hard when allowed) |
+| GET | `/codelists/{code}/values` | Authenticated | **Effective** values (`lang`, `active`, optional superadmin `account_id`) |
+| GET | `/codelists/{code}/values/{value_code}` | Authenticated | Resolve single value incl. inactive |
+| PUT | `/codelists/{code}/values/{value_code}/override` | Account admin | Set hide/default/sort |
+| DELETE | `/codelists/{code}/values/{value_code}/override` | Account admin | Clear override |
+| GET | `/codelists/{code}/overrides` | Account admin | List overrides |
+| POST | `/codelists/{code}/manage/values` | Admin / superadmin | Create value |
+| PATCH | `/codelists/{code}/manage/values/{value_code}` | Admin / superadmin | Update value |
+| POST | `/codelists/{code}/manage/values/{value_code}/labels` | Admin / superadmin | Upsert labels |
+| GET | `/codelists/{code}/manage/values` | Authenticated | Raw values for management |
+| GET | `/codelists/{code}/export` | Superadmin (system) / admin (own) | Export package |
+| POST | `/codelists/import` | Superadmin | Import package |
+
+## Error shapes
+
+Aligned with SnackBase HTTP conventions: `detail` string or validation `details[]`
+with `field`, `message`, `code` (e.g. `not_in_codelist`).
+
+## Record field option
+
+```json
+{ "name": "region", "type": "text", "required": true, "codelist": "regions" }
+```
+
+On record create, membership is checked via effective list for the record account.

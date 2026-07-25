@@ -8,15 +8,15 @@ description: "Integrate SnackBase with AI assistants using the Model Context Pro
 The Model Context Protocol (MCP) is a standardized protocol for connecting AI assistants to external data sources and tools. SnackBase's MCP server allows AI models to directly interact with your SnackBase backend.
 </Card>
 <Card title="Key Features" icon="features">
-- 15+ tools for complete SnackBase operations
-- Type-safe data access
-- Secure API key authentication
+- 21 tools covering core admin, data, and automation domains
+- Type-safe data access via `@snackbase/sdk`
+- Secure API key authentication only (no interactive login tools)
 - Compatible with Claude, Cursor, and other MCP clients
 </Card>
 <Card title="Use Cases" icon="lightbulb">
 - Natural language database queries
 - AI-powered data analysis
-- Automated workflows
+- Automated webhooks, hooks, workflows, and custom endpoints
 - Developer productivity enhancement
 </Card>
 </CardGroup>
@@ -30,7 +30,8 @@ The SnackBase MCP server (`@snackbase/mcp`) exposes SnackBase's functionality as
 - **Data Operations**: Query, create, update, and delete records in any collection
 - **User Management**: Manage users, groups, roles, and permissions
 - **Account Management**: Handle multi-tenant accounts and their configurations
-- **Admin Operations**: Access audit logs, email templates, macros, and more
+- **Automation**: Webhooks, hooks, custom endpoints, workflows, and background jobs
+- **Admin Operations**: Access audit logs, email templates, macros, files, and more
 - **Monitoring**: Retrieve dashboard statistics and migration status
 
 ## How It Works
@@ -58,41 +59,48 @@ The MCP server formats the response and returns it to the AI assistant, which ca
 
 ## Available Tools
 
-The MCP server exposes 15 tools covering all major SnackBase operations:
+The MCP server exposes **21** tools covering core and automation domains:
 
 | Tool | Description |
 |------|-------------|
 | `snackbase_collections` | Manage collections (schemas) and their structure |
-| `snackbase_records` | CRUD operations on collection records |
+| `snackbase_records` | CRUD, batch, and aggregate on collection records |
 | `snackbase_collection_rules` | Configure access control rules for collections |
-| `snackbase_users` | User management and authentication |
+| `snackbase_users` | User management (create requires `role_id`) |
 | `snackbase_groups` | Group management for team-based access |
 | `snackbase_roles` | Role-based access control |
 | `snackbase_accounts` | Multi-tenant account management |
-| `snackbase_invitations` | User invitation management |
-| `snackbase_api_keys` | API key creation and management |
-| `snackbase_admin` | Admin operations and configurations |
-| `snackbase_dashboard` | Dashboard statistics and metrics |
+| `snackbase_invitations` | Admin invitations (list/create/resend/cancel) |
+| `snackbase_api_keys` | API key create, list, get, revoke |
+| `snackbase_admin` | Provider configurations and connection tests |
+| `snackbase_dashboard` | Dashboard statistics (`range`: 7d/30d/90d) |
 | `snackbase_audit_logs` | Audit log access and export |
-| `snackbase_email_templates` | Email template management |
+| `snackbase_email_templates` | Email templates and send logs |
 | `snackbase_macros` | SQL macro operations |
 | `snackbase_migrations` | Migration status and history |
+| `snackbase_webhooks` | Outbound collection webhooks and deliveries |
+| `snackbase_hooks` | Event/schedule/manual hooks and executions |
+| `snackbase_endpoints` | Custom HTTP endpoints and executions |
+| `snackbase_workflows` | Workflow definitions and instance control |
+| `snackbase_jobs` | Background job queue (**superadmin**) |
+| `snackbase_files` | Download URL generation and file delete |
 
 <Note>
-The `auth` and `realtime` services are excluded from the MCP server because they don't fit the request/response model well. Authentication should be handled by your application, and realtime requires persistent connections.
+**Not exposed:** interactive auth (password/OAuth/SAML/login/register), realtime WebSocket/SSE, `records.query` QueryBuilder, invitation public accept flows, and multipart file upload. Use `@snackbase/sdk` or the Admin UI for those surfaces. See [Tools Reference](/mcp/tools).
 </Note>
 
 ## Security Model
 
-The MCP server uses **API key authentication** exclusively:
+The MCP server uses **API key authentication** exclusively (`SNACKBASE_URL` + `SNACKBASE_API_KEY`):
 
-- **No user sessions**: MCP tools operate with the permissions of the API key
-- **Service account**: Use a dedicated service account with appropriate permissions
-- **Scoped access**: Create API keys with minimal required permissions
-- **Audit trail**: All MCP operations are logged in the audit logs
+- **No user sessions or password login tools**
+- Tools operate with the **permissions of the API key**
+- Prefer dedicated service accounts with least privilege
+- Superadmin keys can access jobs and system configuration across tenants — high blast radius
+- Audit trail: MCP-driven mutations appear in audit logs when the backend records them
 
 <Warning>
-Never expose API keys with admin privileges to untrusted AI assistants. Always use the minimum required permissions for your use case.
+Never expose superadmin API keys to untrusted AI assistants. Always use the minimum required permissions for your use case. Store keys in MCP client env config, not in prompts or shared logs.
 </Warning>
 
 ## Architecture

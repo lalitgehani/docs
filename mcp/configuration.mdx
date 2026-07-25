@@ -217,13 +217,19 @@ Look for errors in the stderr output.
 
 ## Security Best Practices
 
+### Auth model
+
+MCP uses **API keys only**. There are no tools for password login, OAuth, SAML, register, or password reset. Agents act as the key’s principal.
+
 ### API Key Management
 
 - **Use separate keys** for different environments
 - **Rotate keys regularly** (e.g., every 90 days)
 - **Use minimal permissions** - only grant what's needed
+- **Avoid superadmin keys** in shared agent sessions — they can manage jobs and system-wide configuration
 - **Monitor usage** via audit logs
 - **Revoke compromised keys** immediately
+- **Never paste keys into prompts** or commit them to version control
 
 ### Environment Isolation
 
