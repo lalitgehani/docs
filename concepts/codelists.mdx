@@ -1,0 +1,127 @@
+---
+title: "Codelists"
+description: "First-class shared reference dictionaries with multi-tenant overrides"
+---
+
+# Codelists
+
+Codelists are first-class shared reference dictionaries in SnackBase. They provide
+stable **submission codes** (stored in business data) with **labels resolved at
+read time** — inspired by CDISC Controlled Terminology concepts, without being a
+full regulatory CT engine.
+
+## Why codelists exist
+
+Per-tenant collection fan-out for shared dimensions (e.g. cloud regions) does not
+scale: every new account needed a copy of the catalog, and updates required N
+writes. Codelists store system dictionaries once and resolve an **effective set**
+per account using overrides.
+
+## Concepts
+
+| Concept | Description |
+|---------|-------------|
+| **System codelist** | Platform-wide dictionary (`scope=system`, `is_system=true`). Owned by the system account. |
+| **Account codelist** | Private tenant dictionary. Isolated by `account_id`. |
+| **Value** | Stable submission code (e.g. `eu-01`) with optional metadata/definition. |
+| **Label** | Language-specific display text (`en`, `ja`, …). Fallback: requested → `en` → code. |
+| **Override** | Per-account delta only: visibility (hide), default, sort, metadata merge. Never copies values. |
+| **Effective values** | Merge of system values + account extensions (if extensible) − hidden + labels. |
+
+## Builtin example: `regions`
+
+After migrate, the platform seeds:
+
+- Codelist `regions` (`is_builtin=true`, `is_extensible=false`)
+- Value `eu-01` with EN label **EU Central (Germany)** and metadata
+  `{ "country": "DE", "status": "available" }`
+
+Any account’s effective list includes `eu-01` without per-account rows.
+
+## Effective resolution algorithm
+
+1. Resolve codelist: system list by code if present; else account-owned private list.
+2. Candidate values: active system values + active account extensions when `is_extensible`.
+3. Apply account overrides (drop hidden; apply sort/default/metadata).
+4. Resolve labels via language fallback.
+5. Return ordered DTOs for pickers and validation.
+
+Account lists **cannot shadow** system list codes (same `code` as a system list is rejected).
+
+## API overview
+
+```http
+GET  /api/v1/codelists
+GET  /api/v1/codelists/{code}
+GET  /api/v1/codelists/{code}/values?lang=en&active=true
+PUT  /api/v1/codelists/{code}/values/{value_code}/override
+DELETE /api/v1/codelists/{code}/values/{value_code}/override
+```
+
+### Effective values example
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  "$BASE/api/v1/codelists/regions/values?lang=en"
+```
+
+```json
+[
+  {
+    "code": "eu-01",
+    "label": "EU Central (Germany)",
+    "metadata": { "country": "DE", "status": "available" },
+    "is_default": false,
+    "sort_order": 1,
+    "scope": "system",
+    "is_active": true
+  }
+]
+```
+
+### Hide a value for one account
+
+```bash
+curl -X PUT -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"visibility":"hidden"}' \
+  "$BASE/api/v1/codelists/regions/values/eu-01/override"
+```
+
+Other accounts still see `eu-01`. Clearing the override restores visibility.
+
+## Authz summary
+
+| Action | Who |
+|--------|-----|
+| Read effective values | Authenticated users |
+| Manage system lists/values/labels | Superadmin |
+| Manage account private lists | Account admin |
+| Add extensions on extensible system lists | Account admin |
+| Set/clear overrides | Account admin (own account); superadmin with `account_id` |
+
+Unauthenticated access is rejected (401/403).
+
+## Error codes (aligned with platform HTTP patterns)
+
+| Situation | HTTP |
+|-----------|------|
+| Not found | 404 |
+| Forbidden / builtin protected / non-extensible | 403 |
+| Duplicate code | 409 |
+| Validation / not in codelist | 400 / 422 |
+
+## Historical inactive values
+
+Inactive values are excluded from pickers (`active=true`) but labels remain
+resolvable via `GET /api/v1/codelists/{code}/values/{value_code}` for display of
+historical records. Use `assert_in_codelist(..., allow_inactive_existing=True)`
+when editing old data.
+
+## Non-goals (v1)
+
+- Full CDISC CT regulatory engine, context bindings, or version pinning beyond
+  schema hooks (`external_code`, `version`)
+- Per-account label overrides
+- Anonymous public codelists
+- Dual source of truth with collection-based region catalogs
