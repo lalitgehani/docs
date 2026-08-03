@@ -50,7 +50,8 @@
               "guides/frontend",
               "guides/setting-up-webhooks",
               "guides/building-workflows",
-              "guides/creating-custom-endpoints"
+              "guides/creating-custom-endpoints",
+              "guides/encrypted-fields"
             ]
           },
           {

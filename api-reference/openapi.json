@@ -3,7 +3,7 @@
   "info": {
     "title": "SnackBase",
     "description": "Open-source Backend-as-a-Service (BaaS)",
-    "version": "0.1.0"
+    "version": "0.8.0"
   },
   "paths": {
     "/health": {

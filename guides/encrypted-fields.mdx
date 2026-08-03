@@ -1,0 +1,117 @@
+---
+title: "Encrypted collection fields"
+description: "Store application credentials encrypted at rest with server-only redaction and scoped secret reveal."
+---
+
+# Encrypted collection fields
+
+SnackBase can encrypt selected collection fields so credential plaintext is never
+stored in the database or returned by normal record APIs.
+
+## Marking a field as encrypted
+
+Only `text` and `json` fields may set `encrypted: true`.
+
+```json
+{
+  "name": "api_token",
+  "type": "text",
+  "encrypted": true
+}
+```
+
+```json
+{
+  "name": "oauth_credentials",
+  "type": "json",
+  "encrypted": true
+}
+```
+
+### Restrictions
+
+Encrypted fields **cannot** be:
+
+- unique
+- indexed / searchable / sortable
+- used in filters, group-by, or aggregations
+
+Changing encryption state on an existing field requires the encryption data
+migration path (not a plain schema update).
+
+## API behavior
+
+| Operation | Behavior |
+| --- | --- |
+| Create / update | Accept plaintext; store ciphertext |
+| List / get / batch / realtime | Return `••••••••` for non-null encrypted fields; `null` stays `null` |
+| PATCH omit | Preserves the existing secret |
+| PATCH with `••••••••` | Preserves the existing secret (placeholder is never written) |
+
+## Secret reveal (scoped API key)
+
+```http
+GET /api/v1/records/{collection}/{record_id}/secrets?fields=api_token,oauth_credentials
+```
+
+**Requirements**
+
+- Account-bound service API key (`X-API-Key`)
+- Scope: `records:secrets:read`
+- Collection read permission for the account
+
+**Response**
+
+```json
+{
+  "data": {
+    "api_token": "plaintext-value",
+    "oauth_credentials": { "client_id": "...", "client_secret": "..." }
+  }
+}
+```
+
+| Status | Meaning |
+| --- | --- |
+| 200 | Selected encrypted fields returned as plaintext |
+| 400 | Unknown/non-encrypted field, or too many fields (>20) |
+| 401 | Missing authentication |
+| 403 | Missing `records:secrets:read` (JWT users, unscope keys) |
+| 404 | Record missing or belongs to another account |
+
+When `fields` is omitted, all encrypted fields are returned only if the record
+has 20 or fewer encrypted fields; otherwise you must select fields explicitly.
+
+## SDK
+
+```ts
+import { SnackBaseClient } from '@snackbase/sdk';
+
+const client = new SnackBaseClient({
+  url: 'https://api.example.com',
+  // Use a service API key with records:secrets:read — not a user JWT
+});
+
+const { data } = await client.records.getSecrets('integrations', recordId, [
+  'api_token',
+]);
+// Use data.api_token in memory only; do not log or cache it
+```
+
+## Deployment key
+
+Encrypted values use Fernet with `SNACKBASE_ENCRYPTION_KEY`.
+
+- **Production rejects the default key** — set a strong value before deploy:
+  `openssl rand -hex 32`
+- Keep the key outside the database and application artifact
+- Backups of encrypted data are useless without the **same** key
+- Key rotation is **not** supported in this release; changing the key makes
+  existing ciphertext unreadable
+
+## Security notes
+
+- PII masking is **not** a substitute for encryption
+- Audit logs and events record field names and operation metadata only, never
+  secret values
+- Superadmin JWT sessions do **not** bypass secret reveal authorization
