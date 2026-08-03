@@ -50,6 +50,8 @@ Check `X-Function-Execution-Id` and `GET /api/v1/functions/hello/executions`.
 
 Exact `name==version` only. Install runs on deploy via uv.
 
+In the Admin UI Code editor, manage pins in the **Dependencies** panel. `requirements.txt` is generated and shown read-only; deploy is the only save operation for source. File paths must be relative POSIX paths (no `..`, absolute paths, or backslashes). Python syntax is checked on deploy before dependencies install.
+
 ## 5. SDK
 
 ```ts

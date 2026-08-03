@@ -106,4 +106,14 @@ snackbase functions serve hello
 
 ## Admin UI
 
-Instance Admin → **Functions**: list/create, multi-file editor, dependency pins, deploy, test sheet, executions, versions/rollback, grants, and secrets.
+Instance Admin → **Functions** (instance Admin only; not hosted in Cloud Console):
+
+- **Code tab** — CodeMirror multi-file Python editor with line numbers, syntax highlighting, search, and folding. Switching files keeps each file’s content, cursor, selection, scroll position, and undo history.
+- **File rules** — Relative POSIX paths only (for example `utils.py`, `lib/formatters.py`). Absolute paths, `..` segments, backslashes, empty names, and names longer than 255 characters are rejected in the UI and again on deploy.
+- **Entrypoint** — Marked with ★. Use **Set as entrypoint** before removing the current entrypoint file. At least one source file is required.
+- **Dependencies panel** — Exact pins (`package==version`) are the source of truth. The editor always generates a read-only `requirements.txt` from that list (including an empty file when there are no pins). Do not edit `requirements.txt` in the Code tab.
+- **Deploy is save** — Source is persisted only when you deploy. A successful deploy creates an immutable Function version and clears the unsaved-changes indicator. Leaving or reloading with local edits prompts for confirmation; un-deployed edits exist only in the browser session and can be lost if you confirm leave.
+- **Syntax preflight** — Deploy parses every `.py` / `.pyi` file before installing dependencies. Syntax errors return HTTP 400 with file, line, and column. Invalid imports still pass preflight; handler-contract checks remain on test/invoke.
+- Also: test sheet, executions, versions/rollback, grants, and secrets.
+
+There is no Python language-server / IntelliSense and no SQL query editor in this surface. The shared editor shell is language-adaptable for a future SQL Editor (dialect + collection schema completion) without replacing Function deploy or dirty-state behavior.
