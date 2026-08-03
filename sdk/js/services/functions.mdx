@@ -1,0 +1,16 @@
+---
+title: "Functions"
+description: "Invoke tenant Functions via the JavaScript SDK"
+---
+
+```ts
+const result = await client.functions.invoke('hello', {
+  body: { name: 'Ada' },
+  method: 'POST',
+});
+// result.data — parsed JSON body
+// result.executionId — X-Function-Execution-Id
+// result.status — HTTP status
+```
+
+Account slug is taken from the authenticated account, or `defaultAccount` in client config when that value is the account slug.

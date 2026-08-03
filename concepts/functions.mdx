@@ -1,0 +1,109 @@
+---
+title: "Functions"
+description: "Deploy sandboxed Python handlers with pinned dependencies on your SnackBase instance"
+---
+
+**Functions** let tenants deploy real Python business logic on the SnackBase instance—HTTP-invocable, secret-aware, and dependency-capable—without a separate backend.
+
+## Positioning
+
+| Product | Role |
+| --- | --- |
+| Custom Endpoints | No-code HTTP action pipelines |
+| Hooks / Workflows | Event/schedule/graph automation |
+| Platform `@app.hook.*` | Trusted code shipped with the server |
+| **Functions** | Tenant-deployed sandboxed Python FaaS |
+
+## Invoke URL
+
+```
+POST /api/v1/f/{account_slug}/{function_slug}
+```
+
+Optional path suffix is supported: `/api/v1/f/{account_slug}/{slug}/sub/path`.
+
+`auth_required` defaults to **true** (JWT / API key for the same account). Public webhooks set `auth_required=false`.
+
+## Handler contract
+
+```python
+from snackbase_fn import Request, Response
+
+def handler(req: Request) -> Response:
+    return Response.json({"ok": True, "user": req.auth.user_id})
+```
+
+Async handlers are supported. Baseline packages in every env: `snackbase_fn` and `httpx`.
+
+## Dependencies
+
+Declare exact pins on deploy (`openai==1.66.0`). Unpinned names, ranges, and git/URL installs are rejected. The server runs **uv** at deploy time; invoke is offline (no PyPI on the hot path).
+
+## Dual client
+
+| Helper | Scope |
+| --- | --- |
+| `get_client()` | Caller-scoped token (respects collection rules) |
+| `get_admin_client()` | Service token gated by function **grants** (deny-by-default) |
+
+Encrypted collection fields stay redacted unless the function has both:
+
+- grant `records.secrets.read:<collection>`
+- API-key scope `records:secrets:read`
+
+## Secrets
+
+Function secrets are Fernet-encrypted, write-only on list, and injected as env vars into the child process. Names cannot start with `SNACKBASE_`.
+
+## Isolation & limits
+
+- Per-version venv + `python -I` subprocess
+- Timeout kill (default 30s) → HTTP 504 / status `timeout`
+- Per-account and global concurrency caps → 429
+- SSRF egress policy: deny loopback, RFC1918, link-local, metadata, ports 25/587
+- Nested invoke budget via `X-Function-Depth`
+
+## Management API
+
+| Method | Path | Description |
+| --- | --- | --- |
+| POST | `/api/v1/functions` | Create |
+| GET | `/api/v1/functions` | List |
+| GET | `/api/v1/functions/{slug}` | Get |
+| PATCH | `/api/v1/functions/{slug}` | Update / lifecycle |
+| DELETE | `/api/v1/functions/{slug}` | Soft-delete |
+| POST | `/api/v1/functions/{slug}/deploy` | Deploy files + pins |
+| GET | `/api/v1/functions/{slug}/executions` | Execution log |
+| GET | `/api/v1/functions/{slug}/versions` | Version history |
+| POST | `/api/v1/functions/{slug}/versions/{id}/activate` | Rollback |
+| PATCH | `/api/v1/functions/{slug}/grants` | Admin-client grants |
+| GET | `/api/v1/functions/{slug}/stats` | Invoke stats |
+| POST | `/api/v1/functions/{slug}/test` | Management test invoke |
+| * | `/api/v1/function-secrets` | Secrets CRUD (values write-only) |
+
+Manage mutations require account admin (or `functions:write` / `secrets:write` scopes).
+
+## Automation
+
+Hooks, Workflows, and Custom Endpoints support action type `invoke_function`:
+
+```json
+{ "type": "invoke_function", "slug": "hello", "payload": { "x": 1 } }
+```
+
+## SDK & CLI
+
+```ts
+const { data } = await client.functions.invoke('hello', { body: { name: 'Ada' } });
+```
+
+```bash
+snackbase functions list
+snackbase functions deploy hello --dir ./snackbase/functions/hello
+snackbase functions logs hello
+snackbase functions serve hello
+```
+
+## Admin UI
+
+Instance Admin → **Functions**: list/create, multi-file editor, dependency pins, deploy, test sheet, executions, versions/rollback, grants, and secrets.

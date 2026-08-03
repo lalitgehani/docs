@@ -1,0 +1,46 @@
+---
+title: "Securing Functions"
+description: "Auth modes, secrets, grants, SSRF, and encrypted fields"
+---
+
+## Auth modes
+
+- **`auth_required=true` (default)**: require a valid same-account Bearer token.
+- **`auth_required=false`**: public invoke (CORS preflight allowed). Still inject caller auth when a valid token is present.
+
+Wrong-account tokens receive **403**. Missing auth on required functions receives **401**.
+
+## Function secrets
+
+```bash
+curl -X POST "$SB_URL/api/v1/function-secrets" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"name":"WEBHOOK_SECRET","value":"..."}'
+```
+
+- List returns names + timestamps only (never values)
+- Injected as process env on invoke
+- Names cannot start with `SNACKBASE_`
+
+## Admin client grants
+
+Default grants are empty: `get_admin_client()` record writes fail until you grant capabilities, e.g. `records.write:todos`. Encrypted-field reveal requires `records.secrets.read:<collection>` **and** API-key scope `records:secrets:read`.
+
+## Network egress
+
+Outbound HTTP from functions is blocked for loopback, private, link-local, and cloud metadata addresses, and for SMTP ports 25/587. The configured SnackBase API host is allowlisted.
+
+## RBAC
+
+Create/deploy/delete/secrets require account **admin** (or `functions:write` / `secrets:write` scopes). Invoke is independent of manage rights and only follows `auth_required` + caller auth.
+
+## Lifecycle
+
+| Status / flag | Invoke result |
+| --- | --- |
+| `enabled=false` or `REMOVED` | 404 |
+| `THROTTLED` | 429 |
+| Concurrent over-cap | 429 |
+| Timeout | 504 |
+
+Execution logs redact Authorization and token-like headers.

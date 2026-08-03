@@ -51,7 +51,9 @@
               "guides/setting-up-webhooks",
               "guides/building-workflows",
               "guides/creating-custom-endpoints",
-              "guides/encrypted-fields"
+              "guides/encrypted-fields",
+              "guides/functions-quickstart",
+              "guides/functions-securing"
             ]
           },
           {
@@ -103,6 +105,7 @@
               "concepts/api-hooks",
               "concepts/webhooks",
               "concepts/custom-endpoints",
+              "concepts/functions",
               "concepts/workflows",
               "concepts/background-jobs"
             ]
@@ -162,6 +165,7 @@
               "sdk/js/services/webhooks",
               "sdk/js/services/hooks",
               "sdk/js/services/endpoints",
+              "sdk/js/services/functions",
               "sdk/js/services/workflows",
               "sdk/js/services/jobs"
             ]
@@ -443,6 +447,17 @@
               "api-reference/endpoints/custom-endpoints/delete-endpoint",
               "api-reference/endpoints/custom-endpoints/toggle-endpoint",
               "api-reference/endpoints/custom-endpoints/list-endpoint-executions"
+            ]
+          },
+          {
+            "group": "Functions",
+            "pages": [
+              "api-reference/endpoints/functions/create-function",
+              "api-reference/endpoints/functions/deploy-function",
+              "api-reference/endpoints/functions/invoke-function",
+              "api-reference/endpoints/functions/list-function-secrets",
+              "api-reference/endpoints/functions/update-grants",
+              "api-reference/endpoints/functions/function-stats"
             ]
           },
           {

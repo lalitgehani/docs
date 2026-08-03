@@ -1,0 +1,7 @@
+---
+title: "Invoke function"
+api: "POST /api/v1/f/{account_slug}/{slug}"
+description: "Public or authenticated HTTP invoke of the active function version"
+---
+
+Supports GET/POST/PUT/PATCH/DELETE/OPTIONS. Response includes `X-Function-Execution-Id`. Auth matrix depends on the function's `auth_required` flag.

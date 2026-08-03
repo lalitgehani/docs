@@ -1,0 +1,19 @@
+---
+title: "Create function"
+api: "POST /api/v1/functions"
+description: "Create a new function definition for the current account"
+---
+
+### Body
+
+```json
+{
+  "name": "Hello",
+  "slug": "hello",
+  "description": "Optional",
+  "auth_required": true,
+  "entrypoint": "handler.py"
+}
+```
+
+Slug must match `^[a-z][a-z0-9_-]{1,63}$`. Requires admin or `functions:write`.

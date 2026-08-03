@@ -1,0 +1,19 @@
+---
+title: "Deploy function"
+api: "POST /api/v1/functions/{slug}/deploy"
+description: "Deploy source files and exact dependency pins; builds a per-version venv with uv"
+---
+
+### Body
+
+```json
+{
+  "entrypoint": "handler.py",
+  "dependencies": ["cowsay==6.1"],
+  "files": {
+    "handler.py": "from snackbase_fn import Response\n\ndef handler(req):\n    return Response.json({\"ok\": true})\n"
+  }
+}
+```
+
+Returns the function metadata and new version. Install failures return **400** with uv stderr.

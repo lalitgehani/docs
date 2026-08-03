@@ -1,0 +1,62 @@
+---
+title: "Functions quickstart"
+description: "Create, deploy, and invoke a Python function in minutes"
+---
+
+## 1. Create a function
+
+```bash
+curl -X POST "$SB_URL/api/v1/functions" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Hello","slug":"hello","auth_required":true}'
+```
+
+Or use Admin UI → **Functions** → **New Function** (Hello JSON template).
+
+## 2. Deploy source
+
+```bash
+curl -X POST "$SB_URL/api/v1/functions/hello/deploy" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "files": {
+      "handler.py": "from snackbase_fn import Request, Response\n\ndef handler(req: Request) -> Response:\n    return Response.json({\"message\": \"hello\"})\n"
+    },
+    "dependencies": []
+  }'
+```
+
+## 3. Invoke
+
+```bash
+curl -X POST "$SB_URL/api/v1/f/$ACCOUNT_SLUG/hello" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+Check `X-Function-Execution-Id` and `GET /api/v1/functions/hello/executions`.
+
+## 4. Pin a dependency
+
+```json
+{
+  "files": { "handler.py": "..." },
+  "dependencies": ["cowsay==6.1"]
+}
+```
+
+Exact `name==version` only. Install runs on deploy via uv.
+
+## 5. SDK
+
+```ts
+import { SnackBaseClient } from '@snackbase/sdk';
+
+const client = new SnackBaseClient({ baseUrl: SB_URL, defaultAccount: 'my-slug' });
+await client.auth.login({ email, password, account: 'my-slug' });
+const result = await client.functions.invoke('hello', { body: { name: 'Ada' } });
+console.log(result.data, result.executionId);
+```
