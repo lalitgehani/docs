@@ -109,9 +109,29 @@ Encrypted values use Fernet with `SNACKBASE_ENCRYPTION_KEY`.
 - Key rotation is **not** supported in this release; changing the key makes
   existing ciphertext unreadable
 
+## Migrating existing fields
+
+Toggling `encrypted` via a plain schema update is rejected. Use the dedicated
+encryption migration path (`CollectionService.migrate_field_encryption`) which:
+
+1. Converts existing non-null values in batches (account-scoped when provided)
+2. Updates the field's `encrypted` metadata only after all values convert
+3. On failure, rolls back data changes and leaves the schema unchanged
+
+Verify after migration:
+
+```bash
+# Backend quality gates
+cd SnackBase && uv run pytest tests/unit tests/security tests/integration/test_encrypted_fields.py
+```
+
+Webhook plaintext secrets are encrypted by Alembic revision `20260803_wh_secrets`.
+Apply migrations before deploying code that expects ciphertext at rest.
+
 ## Security notes
 
 - PII masking is **not** a substitute for encryption
 - Audit logs and events record field names and operation metadata only, never
   secret values
 - Superadmin JWT sessions do **not** bypass secret reveal authorization
+- `/health` reports whether a non-default encryption key is configured (never the key itself)
