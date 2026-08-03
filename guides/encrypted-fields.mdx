@@ -112,10 +112,19 @@ Encrypted values use Fernet with `SNACKBASE_ENCRYPTION_KEY`.
 ## Migrating existing fields
 
 Toggling `encrypted` via a plain schema update is rejected. Use the dedicated
-encryption migration path (`CollectionService.migrate_field_encryption`) which:
+encryption migration API:
 
-1. Converts existing non-null values in batches (account-scoped when provided)
-2. Updates the field's `encrypted` metadata only after all values convert
+```http
+POST /api/v1/collections/{collection_id}/fields/{field_name}/encryption
+{ "enable": true }
+```
+
+Which:
+
+1. Converts **all** existing non-null values in batches (every account — partial
+   `account_id` scope is refused so tenants never mix plaintext and ciphertext
+   under one `encrypted` flag)
+2. Updates the field's `encrypted` metadata only after every value converts
 3. On failure, rolls back data changes and leaves the schema unchanged
 
 Verify after migration:
