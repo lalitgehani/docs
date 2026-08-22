@@ -1,0 +1,60 @@
+---
+title: Platform OIDC (self-host)
+description: Optional trusted-issuer authentication for the SnackBase admin when self-hosting.
+---
+
+SnackBase instances can accept access tokens from an external OIDC provider (SnackBase
+Cloud platform gateway, Auth0, Keycloak, etc.) in addition to local JWT and API keys.
+**All settings default to unset** — without them, the instance behaves exactly as before.
+
+## Settings
+
+Configure these environment variables on the SnackBase instance (single-tenant mode only):
+
+| Variable | Purpose |
+| --- | --- |
+| `SNACKBASE_PLATFORM_ISSUER` | Expected JWT `iss` claim (issuer URL) |
+| `SNACKBASE_PLATFORM_JWKS_URL` | JWKS document URL for RS256/ES256 signature verification |
+| `SNACKBASE_PLATFORM_AUDIENCE` | Expected JWT `aud` claim (per-environment on Cloud) |
+| `SNACKBASE_PLATFORM_JIT_PROVISION` | `true` to create users on first platform login (default off) |
+| `SNACKBASE_PLATFORM_DEFAULT_ROLE` | Role slug for JIT-created users (default `user`) |
+| `SNACKBASE_PLATFORM_JWKS_CACHE_TTL` | JWKS cache seconds (default 300) |
+
+Requires `SNACKBASE_SINGLE_TENANT_MODE=true`. Multi-tenant instances must not enable
+platform auth.
+
+## Worked example: Auth0
+
+1. Create an Auth0 API with identifier `https://admin.example.com/snackbase`.
+2. Create a Machine-to-Machine or SPA application that obtains access tokens for that API.
+3. Ensure access tokens are **RS256** and include `email` (and optionally custom claims).
+4. Set on your SnackBase container:
+
+```bash
+SNACKBASE_SINGLE_TENANT_MODE=true
+SNACKBASE_SINGLE_TENANT_ACCOUNT=my-app
+SNACKBASE_PLATFORM_ISSUER=https://YOUR_TENANT.auth0.com/
+SNACKBASE_PLATFORM_JWKS_URL=https://YOUR_TENANT.auth0.com/.well-known/jwks.json
+SNACKBASE_PLATFORM_AUDIENCE=https://admin.example.com/snackbase
+SNACKBASE_PLATFORM_JIT_PROVISION=true
+```
+
+5. Mint a token from Auth0 with `aud` matching `SNACKBASE_PLATFORM_AUDIENCE`.
+6. Call the admin API with `Authorization: Bearer <token>` — audit entries record
+   `auth_method=platform`.
+
+## SnackBase Cloud parity
+
+Cloud sets the same three core variables during provision (`SNACKBASE_PLATFORM_ISSUER`,
+`SNACKBASE_PLATFORM_JWKS_URL`, `SNACKBASE_PLATFORM_AUDIENCE={ref}`). The Cloud Console
+session replaces manual token handling; self-hosters use their IdP directly.
+
+## Security notes
+
+- Platform auth is **optional and default-off**.
+- `/health` and OpenAPI do not disclose whether platform auth is configured.
+- HS256 platform-shaped tokens are rejected.
+- Disabling platform settings removes the alternate auth path entirely.
+
+See also [Authentication concepts](/concepts/authentication) and
+[Cloud Studio](/guides/cloud-studio).

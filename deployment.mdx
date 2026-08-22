@@ -136,7 +136,7 @@ uv run mypy src/
 
 ### Deployment Checklist
 
-- [ ] Set strong `SNACKBASE_SECRET_KEY`
+- [ ] Set strong `SNACKBASE_SECRET_KEY`, `SNACKBASE_TOKEN_SECRET` and `SNACKBASE_ENCRYPTION_KEY`
 - [ ] Use PostgreSQL database
 - [ ] Set `SNACKBASE_ENVIRONMENT=production`
 - [ ] Set `SNACKBASE_DEBUG=false`
@@ -156,7 +156,7 @@ uv run mypy src/
 # Update system
 sudo apt update && sudo apt upgrade -y
 
-# Install Python 3.12
+# Install python 3.14
 sudo apt install python3.12 python3.12-venv -y
 
 # Install uv
@@ -198,8 +198,11 @@ SNACKBASE_PORT=8000
 # Database (PostgreSQL)
 SNACKBASE_DATABASE_URL=postgresql+asyncpg://snackbase:password@localhost/snackbase_prod
 
-# Security
+# Security — all three are required in production; the app refuses to boot
+# on the shipped placeholder values. Generate each with: openssl rand -hex 32
 SNACKBASE_SECRET_KEY=<generate-strong-random-key>
+SNACKBASE_TOKEN_SECRET=<generate-strong-random-key>
+SNACKBASE_ENCRYPTION_KEY=<generate-strong-random-key>
 SNACKBASE_ACCESS_TOKEN_EXPIRE_MINUTES=60
 SNACKBASE_REFRESH_TOKEN_EXPIRE_DAYS=7
 
@@ -503,7 +506,9 @@ SNACKBASE_DB_POOL_TIMEOUT=30
 | `SNACKBASE_HOST`                        | `0.0.0.0`                                    | Server bind address                            |
 | `SNACKBASE_PORT`                        | `8000`                                       | Server port                                    |
 | `SNACKBASE_DATABASE_URL`                | `sqlite+aiosqlite:///./sb_data/snackbase.db` | Database connection URL                        |
-| `SNACKBASE_SECRET_KEY`                  | (auto-generated)                             | JWT signing key                                |
+| `SNACKBASE_SECRET_KEY`                  | placeholder — required in production         | JWT signing key                                |
+| `SNACKBASE_TOKEN_SECRET`                | placeholder — required in production         | API key / SnackBase token signing key          |
+| `SNACKBASE_ENCRYPTION_KEY`              | placeholder — required in production         | Encryption key for sensitive data at rest      |
 | `SNACKBASE_ACCESS_TOKEN_EXPIRE_MINUTES` | `60`                                         | Access token expiration                        |
 | `SNACKBASE_REFRESH_TOKEN_EXPIRE_DAYS`   | `7`                                          | Refresh token expiration                       |
 | `SNACKBASE_CORS_ORIGINS`                | `*`                                          | Allowed CORS origins (comma-separated)         |

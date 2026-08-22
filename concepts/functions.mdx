@@ -39,6 +39,30 @@ Async handlers are supported. Baseline packages in every env: `snackbase_fn` and
 
 Declare exact pins on deploy (`openai==1.66.0`). Unpinned names, ranges, and git/URL installs are rejected. The server runs **uv** at deploy time; invoke is offline (no PyPI on the hot path).
 
+Installing a package can execute code on the host, so deploys are fail-closed by default:
+
+- `SNACKBASE_FUNCTION_DEPENDENCY_MODE` defaults to `allowlist`. Only packages named in `SNACKBASE_FUNCTION_DEPENDENCY_ALLOWLIST` install; anything else is rejected with HTTP 400. Set the mode to `open_pinned` to accept any pinned PyPI package — that lets any account admin install arbitrary packages on the instance.
+- Pins install from wheels only (`--only-binary`), so a source distribution's build backend never runs. A package with no wheel for the runtime platform fails to deploy.
+- The install subprocess runs with a scrubbed environment: it inherits proxy, CA and cache settings but never the server's `SNACKBASE_*` secrets.
+
+## Invoke sandbox
+
+Each invocation runs in a subprocess the kernel confines:
+
+- **Filesystem** — [Landlock](https://docs.kernel.org/userspace-api/landlock.html) restricts the child to the interpreter, its own function env (read-only) and its per-invoke work directory (read-write). Other tenants' envs, `sb_data/` and the database file are unreachable. Landlock needs no extra container capabilities and no seccomp exemption, but it does need **Linux 5.13+**.
+- **Resources** — `setrlimit` bounds address space (`SNACKBASE_FUNCTION_MEMORY_LIMIT_MB`, default 512), CPU time and open file descriptors, on top of the existing wall-clock timeout.
+- **Egress** — the SSRF policy is applied at `socket.connect`, so it covers raw sockets and not just `httpx`/`urllib`.
+
+`SNACKBASE_FUNCTION_SANDBOX_MODE` controls this:
+
+| Value | Behaviour |
+| --- | --- |
+| `auto` (default) | Confine where the kernel supports it. In production this is treated as `required`. |
+| `required` | Refuse to invoke when confinement cannot be established. |
+| `disabled` | Run handlers unconfined. Only appropriate for single-tenant deployments where the tenant is already trusted with the host. |
+
+On a kernel without Landlock — including macOS development machines — `auto` runs handlers unconfined and logs a warning at startup. A production deployment on such a kernel refuses invokes rather than degrading silently.
+
 ## Dual client
 
 | Helper | Scope |

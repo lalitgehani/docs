@@ -1,0 +1,60 @@
+---
+title: Cloud Studio
+description: Integrated SnackBase admin inside SnackBase Cloud — URLs, sessions, cold start, and break-glass access.
+---
+
+SnackBase Cloud hosts the Studio (admin UI) inside the same origin as the Cloud Console.
+You sign in once to Cloud; opening a single-tenant project loads Studio without a second
+login or instance password.
+
+## Project URLs
+
+| Surface | Pattern | Example |
+| --- | --- | --- |
+| Cloud Console | `/organizations/...` | `/organizations/{orgId}/projects` |
+| Integrated Studio | `/project/{ref}/...` | `/project/abc123…/collections` |
+| Platform gateway (API) | `/platform/v1/env/{ref}/...` | Proxied instance API |
+| Direct instance URL | `instance_url` on environment | Data-plane hostname (multi-tenant, SDK) |
+
+`ref` is the stable environment identifier used for platform tokens and gateway routing.
+It is assigned at environment create time.
+
+## Single-session model
+
+1. You authenticate to the **control plane** (Cloud account JWT).
+2. Studio routes load under `/project/{ref}`.
+3. The platform gateway mints a short-lived RS256 token (`aud={ref}`) and proxies requests
+   to your project's SnackBase instance.
+4. The instance maps the platform principal to a real user in the single-tenant account.
+
+Multi-tenant environments do not use integrated Studio in v1 — open the `instance_url`
+directly.
+
+## Cold start (scale-to-zero)
+
+Customer instances run on Momo with `idle.mode: scale_to_zero`. The first request after
+idle may take tens of seconds while the container starts. Studio shows a warming state via
+`GET /platform/v1/env/{ref}/_platform/status` until the instance responds.
+
+Subsequent requests reuse the running container until the idle timeout (default 120s).
+
+## Break-glass access
+
+When platform access is misconfigured or broken, account admins can reveal direct instance
+credentials from the environment list:
+
+1. Choose **Break-glass access** on a **ready** environment.
+2. Confirm the dialog (the action is audited).
+3. Copy the returned **instance URL**, **admin email**, and **password** — shown once.
+4. The platform **rotates the password** immediately after reveal; a second break-glass
+   returns a different password.
+
+Rate limit: **3 invocations per environment per hour**.
+
+Disabling platform auth on your instance (`SNACKBASE_PLATFORM_*` unset) stops integrated
+Studio for that environment by design — use break-glass or re-enable platform auth.
+
+## Related
+
+- [Self-host OIDC integration](/guides/platform-oidc-self-host) — same trusted-issuer settings for your own IdP
+- Control-plane runbook: `control-plane/docs/RUNBOOK.md` (migration script)

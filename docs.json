@@ -36,7 +36,9 @@
           {
             "group": "Deployment",
             "pages": [
-              "deployment"
+              "deployment",
+              "guides/cloud-studio",
+              "guides/platform-oidc-self-host"
             ]
           },
           {
