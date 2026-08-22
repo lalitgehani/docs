@@ -4,7 +4,7 @@ description: Integrated SnackBase admin inside SnackBase Cloud — URLs, session
 ---
 
 SnackBase Cloud hosts the Studio (admin UI) inside the same origin as the Cloud Console.
-You sign in once to Cloud; opening a single-tenant project loads Studio without a second
+You sign in once to Cloud; opening a project loads Studio without a second
 login or instance password.
 
 ## Project URLs
@@ -25,7 +25,9 @@ It is assigned at environment create time.
 2. Studio routes load under `/project/{ref}`.
 3. The platform gateway mints a short-lived RS256 token (`aud={ref}`) and proxies requests
    to your project's SnackBase instance.
-4. The instance maps the platform principal to a real user in the single-tenant account.
+4. The instance resolves the platform principal to a superadmin in its system account
+   (`SY0000`) — it is the operator of that dedicated instance, exactly as a self-hosted
+   superadmin is. This is independent of the instance's own tenancy mode.
 
 Multi-tenant environments do not use integrated Studio in v1 — open the `instance_url`
 directly.
