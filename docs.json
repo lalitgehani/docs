@@ -38,6 +38,7 @@
             "pages": [
               "deployment",
               "guides/cloud-studio",
+              "guides/app-builder",
               "guides/platform-oidc-self-host"
             ]
           },

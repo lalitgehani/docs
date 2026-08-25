@@ -1,0 +1,66 @@
+---
+title: AI App Builder
+description: Chat-driven SnackBase apps on app.* with Momo preview sandboxes and production deploys.
+---
+
+SnackBase Builder is the `app.*` SPA that turns a Cloud project and a **ready** Environment into a live Vite sandbox, an agent that can edit files and mutate SnackBase, and a static production deploy.
+
+This is **not** the same as `SnackBase/PRD_APP_BUILDER_FOUNDATION.md` (a different, instance-local initiative).
+
+## Surfaces
+
+| Surface | Hostname | Notes |
+| --- | --- | --- |
+| Builder UI | `app.{root}` | Vite SPA in `snackbase-builder/` |
+| Builder API | builder-api `:8094` | AI SDK UI message stream + file browser |
+| Preview | `{sandboxRef}.preview.{region}.{suffix}` | Momo sandbox, idle after 30 minutes |
+| Production | `{appSlug}.app.{region}.{suffix}` | Static nginx image, `VITE_SNACKBASE_URL` baked at build time |
+
+Contract helpers live in `control-plane/builder/contract.mjs` and `control-plane/docs/BUILDER_CONTRACT.md`.
+
+## Architecture
+
+1. Control-plane collections: `apps`, `builder_chats`, `builder_messages`, `builder_shares`, `builder_audit_events`.
+2. `sandbox.ensure` materializes `{BUILDER_WORKSPACE_ROOT}/{chatId}` and bind-mounts it at `/workspace`.
+3. builder-api file tools edit that host directory; Vite HMR shows the change in the preview iframe.
+4. Schema/automation tools call the bound Environment through the **platform gateway** (`/platform/v1/env/{ref}`) using the caller's Cloud token — never a bootstrap superadmin password.
+5. `deploy.publish` runs `npm run build` with `VITE_SNACKBASE_URL=environments.instance_url`, then bind-mounts `dist/` into the static AppSpec.
+
+## Agent tools
+
+Workspace: `listFiles`, `viewFile`, `editFile`, `writeFile`, `npmInstall`, `runBuild`, `restartPreview`.
+
+Backend (bound env): collections, rules, hooks, endpoints, functions, workflows. Destructive calls require `confirm: true` and write `builder_audit_events`.
+
+The system prompt forbids Convex/Supabase/Firebase clients and loads official `@snackbase` skill references.
+
+## Local development
+
+```bash
+cd snackbase-builder
+npm install
+npm run test
+npm run build
+CONTROL_PLANE_API_KEY=... npm run dev:api   # :8094
+npm run dev                                 # :5180
+```
+
+Control-plane worker (from `control-plane/`):
+
+```bash
+npm run seed && npm run verify:all
+BUILDER_MODE=simulate npm run builder:once
+```
+
+Set `VITE_BUILDER_URL=http://localhost:5180` on the Cloud Console (`VITE_IS_PLATFORM=true`) to show **Open App Builder**. Self-host Studio omits that env and hides the link.
+
+## Deploy and CORS
+
+Production traffic hits the Environment `instance_url`, not the preview host. If the SPA reports CORS errors, allow the deploy origin on the instance (Studio) and redeploy after changing `instance_url`.
+
+## Operator notes
+
+- `BUILDER_WORKSPACE_ROOT` must be the same host path for builder-api, the builder worker, and Momo bind mounts.
+- Preview AppSpecs use `scale_to_zero` after 30 minutes; deploy AppSpecs are `always_on`.
+- Sandbox images: `ghcr.io/lalitgehani/snackbase-builder-sandbox:preview` and `:static`.
+- DNS: Traefik routes `*.preview.{region}.{suffix}` and `*.app.{region}.{suffix}` to the Momo gateway.
