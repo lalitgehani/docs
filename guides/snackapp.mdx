@@ -8,19 +8,19 @@ SnackApp is a Python application framework with SnackBase embedded. One install,
 ## Install and quickstart
 
 ```bash
-pip install snackapp
+python -m pip install --only-binary=:all: \
+  --extra-index-url https://test.pypi.org/simple/ \
+  snackapp==0.1.1 snackbase==0.12.1
 snackapp init demo
 cd demo
 snackapp run
 ```
 
+`--only-binary=:all:` keeps pip from building TestPyPI source distributions (TestPyPI hosts a broken FastAPI sdist). Dependencies that are not on TestPyPI still resolve from PyPI.
+
+When `snackapp` is on pypi.org, `pip install snackapp` is enough.
+
 Open http://localhost:8000 and sign in with the credentials printed on first boot.
-
-Until the packages are on PyPI, install locally built wheels:
-
-```bash
-pip install path/to/snackbase-0.12.0-py3-none-any.whl path/to/snackapp-0.1.0-py3-none-any.whl
-```
 
 ## Tutorial
 
@@ -70,4 +70,4 @@ See the SnackApp repository `docs/DEPLOY.md` and `Dockerfile`. Set `SNACKBASE_DA
 
 ## Versioning
 
-SnackApp starts at `0.1.0`. Before `1.0`, breaking changes may land in minor versions; pin `snackapp~=0.1` if you need a freeze.
+SnackApp starts at `0.1.1`. Before `1.0`, breaking changes may land in minor versions; pin `snackapp~=0.1` if you need a freeze.
