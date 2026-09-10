@@ -30,7 +30,8 @@
             "group": "Getting Started",
             "pages": [
               "index",
-              "quickstart"
+              "quickstart",
+              "guides/snackapp"
             ]
           },
           {

@@ -1,0 +1,73 @@
+---
+title: "SnackApp"
+description: "Build multi-user Python apps with SnackBase embedded"
+---
+
+SnackApp is a Python application framework with SnackBase embedded. One install, one process, a working multi-user app.
+
+## Install and quickstart
+
+```bash
+pip install snackapp
+snackapp init demo
+cd demo
+snackapp run
+```
+
+Open http://localhost:8000 and sign in with the credentials printed on first boot.
+
+Until the packages are on PyPI, install locally built wheels:
+
+```bash
+pip install path/to/snackbase-0.12.0-py3-none-any.whl path/to/snackapp-0.1.0-py3-none-any.whl
+```
+
+## Tutorial
+
+`app.py` declares the app and collections. Pages live under `pages/` and use `@page` without importing the app object.
+
+```python
+from snackapp import App, Field
+
+app = App("Demo")
+items = app.collection(
+    "items",
+    Field.text("name", required=True),
+    access="team",
+)
+```
+
+```python
+from snackapp import page, ui
+
+@page("/", title="Home", nav=True)
+def home(ctx):
+    ui.header("Home")
+    ui.table(ctx.app.tables["items"].list(), ["name"])
+```
+
+Access presets: `team`, `private`, `readonly`, `public`. `private` adds an `owner` user field when missing.
+
+## Field types
+
+`text`, `long_text`, `rich_text`, `number`, `currency`, `percent`, `rating`, `boolean`, `date`, `datetime`, `select`, `multi_select`, `email`, `emails`, `phone`, `phones`, `url`, `links`, `full_name`, `address`, `json`, `array`, `file`, `files`, `relation`, `user`.
+
+Unknown types raise at declaration. Computed fields are read-only.
+
+## `ui.*` primitives
+
+Layout: `header`, `row`, `column`, `card`, `tabs`, `tab`, `fragment`.
+
+Display: `text`, `markdown`, `stat`, `empty`, `badge`, `divider`, `table`, `fields`, `kanban`, `list_view`, `calendar`, `timeline`, `record`, `chart`, `bar_chart`, `view_bar`, `filter_bar`.
+
+Input: `button`, `form`, `modal_form`.
+
+Aggregates: `Table.count` / `Table.aggregate` call SnackBase's aggregate endpoint, not row loads.
+
+## Deployment
+
+See the SnackApp repository `docs/DEPLOY.md` and `Dockerfile`. Set `SNACKBASE_DATABASE_URL` to a PostgreSQL URL for production. Keep `.snackapp/secret.key` mode `0600`.
+
+## Versioning
+
+SnackApp starts at `0.1.0`. Before `1.0`, breaking changes may land in minor versions; pin `snackapp~=0.1` if you need a freeze.
