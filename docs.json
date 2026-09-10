@@ -28,11 +28,17 @@
         "groups": [
           {
             "group": "Getting Started",
-            "pages": ["index", "quickstart"]
+            "pages": [
+              "index",
+              "quickstart",
+              "guides/snackapp"
+            ]
           },
           {
             "group": "Deployment",
-            "pages": ["deployment"]
+            "pages": [
+              "deployment"
+            ]
           },
           {
             "group": "Developer Guides",
@@ -83,7 +89,12 @@
           },
           {
             "group": "Advanced",
-            "pages": ["architecture", "hooks", "permissions", "macros"]
+            "pages": [
+              "architecture",
+              "hooks",
+              "permissions",
+              "macros"
+            ]
           },
           {
             "group": "Automation",
@@ -185,11 +196,17 @@
           },
           {
             "group": "Error Handling",
-            "pages": ["sdk/js/errors/overview", "sdk/js/errors/types"]
+            "pages": [
+              "sdk/js/errors/overview",
+              "sdk/js/errors/types"
+            ]
           },
           {
             "group": "Reference",
-            "pages": ["sdk/js/reference/client", "sdk/js/reference/types"]
+            "pages": [
+              "sdk/js/reference/client",
+              "sdk/js/reference/types"
+            ]
           }
         ]
       },
@@ -206,11 +223,15 @@
           },
           {
             "group": "Integration",
-            "pages": ["mcp/integration"]
+            "pages": [
+              "mcp/integration"
+            ]
           },
           {
             "group": "Tools Reference",
-            "pages": ["mcp/tools/index"]
+            "pages": [
+              "mcp/tools/index"
+            ]
           }
         ]
       },
@@ -219,7 +240,10 @@
         "groups": [
           {
             "group": "Overview",
-            "pages": ["api-reference/introduction", "api-reference/examples"]
+            "pages": [
+              "api-reference/introduction",
+              "api-reference/examples"
+            ]
           },
           {
             "group": "Health",
@@ -370,7 +394,9 @@
           },
           {
             "group": "Dashboard",
-            "pages": ["api-reference/endpoints/dashboard/get-dashboard-stats"]
+            "pages": [
+              "api-reference/endpoints/dashboard/get-dashboard-stats"
+            ]
           },
           {
             "group": "Migrations",
@@ -471,7 +497,6 @@
       }
     ]
   },
-
   "navbar": {
     "links": [
       {
