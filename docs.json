@@ -31,7 +31,9 @@
             "pages": [
               "index",
               "quickstart",
-              "guides/snackapp"
+              "guides/snackapp",
+              "guides/snackapp-ui",
+              "guides/snackapp-fields"
             ]
           },
           {
