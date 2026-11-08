@@ -26,7 +26,7 @@ This guide covers deploying SnackBase in development and production environments
 **1. Clone the repository**:
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/lalitgehani/SnackBase.git
 cd SnackBase
 ```
 
@@ -925,7 +925,9 @@ SNACKBASE_PERMISSIONS_POLICY="geolocation=(), camera=(), microphone=()"
 SNACKBASE_HTTPS_REDIRECT_ENABLED=true
 ```
 
-**Note**: The default CSP policy is designed to work with the SnackBase Admin UI. If you're using a custom frontend with external CDNs or inline scripts, you may need to adjust the CSP policy.
+**Note**: The default CSP policy is designed to work with the SnackBase Admin UI, which loads every asset from its own origin. FastAPI's interactive API docs (`/docs` and `/redoc`, served in development only) are the one exception: they load Swagger UI and ReDoc from `cdn.jsdelivr.net`, so SnackBase adds those origins to the docs responses only. Every other response keeps the configured policy, and you do not need to loosen it to use the API docs.
+
+If you're using a custom frontend with external CDNs or inline scripts, you may need to adjust the CSP policy.
 
 #### Troubleshooting CSP Issues
 
@@ -938,8 +940,9 @@ If your frontend is blocked by CSP:
 
 Example CSP for frontend with external CDN:
 
-````bash
+```bash
 SNACKBASE_CSP_POLICY="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'"
+```
 
 ---
 
@@ -974,46 +977,6 @@ curl -X POST http://localhost:8000/api/v1/auth/register \
 # Login (no account field needed)
 curl -X POST http://localhost:8000/api/v1/auth/login \
   -d '{"email": "user@example.com", "password": "password123"}'
-```
-
-You can customize security headers via environment variables:
-
-```bash
-# Disable security headers (not recommended)
-SNACKBASE_SECURITY_HEADERS_ENABLED=false
-
-# Customize HSTS max-age (default: 31536000 = 1 year)
-SNACKBASE_HSTS_MAX_AGE=63072000  # 2 years
-
-# Customize Content Security Policy
-SNACKBASE_CSP_POLICY="default-src 'self'; script-src 'self' https://cdn.example.com"
-
-# Customize Permissions Policy
-SNACKBASE_PERMISSIONS_POLICY="geolocation=(), camera=(), microphone=()"
-
-# Enable HTTP to HTTPS redirect in production (optional)
-SNACKBASE_HTTPS_REDIRECT_ENABLED=true
-```
-
-<Note>
-  The default CSP policy is designed to work with the SnackBase Admin UI. If
-  you're using a custom frontend with external CDNs or inline scripts, you may
-  need to adjust the CSP policy.
-</Note>
-
-#### Troubleshooting CSP Issues
-
-If your frontend is blocked by CSP:
-
-1. **Check browser console**: Look for CSP violation errors
-2. **Identify blocked resources**: Note the source and type (script, style, image, etc.)
-3. **Update CSP policy**: Add the necessary sources to the appropriate directive
-4. **Test thoroughly**: Ensure all functionality works after CSP changes
-
-Example CSP for frontend with external CDN:
-
-```bash
-SNACKBASE_CSP_POLICY="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'"
 ```
 
 ## Next Steps

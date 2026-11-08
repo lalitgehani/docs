@@ -28,9 +28,12 @@ Before you begin, ensure you have:
 ### 1.1 Clone the Repository
 
 ```bash
-git clone https://github.com/lalitgehani/snackbase.git
+git clone https://github.com/lalitgehani/SnackBase.git
 cd SnackBase
 ```
+
+The repository directory is `SnackBase` (capital S, capital B) because that is the
+repository name GitHub uses for the clone URL.
 
 ### 1.2 Install Backend Dependencies
 
@@ -42,7 +45,8 @@ uv sync
 
 ### 1.3 Install Frontend Dependencies
 
-Navigate to the UI directory and install Node.js dependencies:
+Install the admin UI's Node.js dependencies. This changes into `ui/` and back to the
+repository root, so the next step runs from the root:
 
 ```bash
 cd ui
@@ -52,11 +56,20 @@ cd ..
 
 ### 1.4 Configure Environment
 
-Create a `.env` file from the example template:
+Create the backend `.env` file from the example template. Run this **from the
+repository root** (the directory containing `pyproject.toml`), not from `ui/`:
 
 ```bash
+# Confirm you are in the repository root
+pwd            # .../SnackBase
 cp .env.example .env
 ```
+
+<Warning>
+  Do not create a `.env` inside `ui/`. The admin UI needs no environment file for
+  local development; a `ui/.env` only overrides Vite build-time variables and
+  running backend commands from `ui/` will fail.
+</Warning>
 
 For local development, the default values work fine. However, for production, update at minimum:
 
