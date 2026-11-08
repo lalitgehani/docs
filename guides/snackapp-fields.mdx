@@ -1,0 +1,422 @@
+---
+title: "SnackApp field types"
+description: "Every field type: storage, JSON contract, operands, and sortability"
+---
+
+A collection declares its fields with `Field.*`. Each constructor emits a
+SnackBase storage definition plus the semantic metadata every surface switches
+on: which renderer a value gets, which operands a filter may use against it, and
+whether it can be sorted.
+
+Unknown types raise at declaration rather than at schema sync. Which
+[`ui.*` primitive](/guides/snackapp-ui) renders a type is decided by the type,
+not by the surface, so a `date` is a date picker in a form, a table cell, and a
+filter bar alike.
+
+## The registry
+
+This table is generated from `serialize_registry()` in
+`src/snackapp/fields/registry.py`. It is not transcribed, so it cannot describe a
+registry that has changed.
+
+{/* generated:field-registry -- regenerate with `make docs` */}
+
+| Type | Storage | Sortable | Renderer | Operands |
+| --- | --- | --- | --- | --- |
+| `text` | `text` | yes | `text` | `is`, `is_not`, `contains`, `does_not_contain`, `is_empty`, `is_not_empty`, `is_any_of` |
+| `long_text` | `text` | yes | `long_text` | `is`, `is_not`, `contains`, `does_not_contain`, `is_empty`, `is_not_empty`, `is_any_of` |
+| `rich_text` | `json` | no | `rich_text` | `is`, `is_not`, `contains`, `does_not_contain`, `is_empty`, `is_not_empty`, `is_any_of` |
+| `number` | `number` | yes | `number` | `is`, `is_not`, `gt`, `gte`, `lt`, `lte`, `is_empty`, `is_not_empty` |
+| `currency` | `json` | yes | `currency` | `is`, `is_not`, `gt`, `gte`, `lt`, `lte`, `is_empty`, `is_not_empty` |
+| `percent` | `number` | yes | `percent` | `is`, `is_not`, `gt`, `gte`, `lt`, `lte`, `is_empty`, `is_not_empty` |
+| `rating` | `number` | yes | `rating` | `is`, `is_not`, `gt`, `gte`, `lt`, `lte`, `is_empty`, `is_not_empty` |
+| `boolean` | `boolean` | yes | `boolean` | `is`, `is_not`, `is_empty`, `is_not_empty` |
+| `date` | `date` | yes | `date` | `is`, `is_not`, `is_before`, `is_after`, `gte`, `lte`, `is_today`, `is_in_past`, `is_in_future`, `is_relative`, `is_empty`, `is_not_empty` |
+| `datetime` | `datetime` | yes | `datetime` | `is`, `is_not`, `is_before`, `is_after`, `gte`, `lte`, `is_today`, `is_in_past`, `is_in_future`, `is_relative`, `is_empty`, `is_not_empty` |
+| `select` | `text` | yes | `select` | `is`, `is_not`, `is_empty`, `is_not_empty`, `is_any_of` |
+| `multi_select` | `json` | no | `multi_select` | `contains`, `does_not_contain`, `is_empty`, `is_not_empty`, `is_any_of` |
+| `email` | `email` | yes | `email` | `is`, `is_not`, `contains`, `does_not_contain`, `is_empty`, `is_not_empty`, `is_any_of` |
+| `emails` | `json` | no | `emails` | `contains`, `does_not_contain`, `is_empty`, `is_not_empty`, `is_any_of` |
+| `phone` | `text` | yes | `phone` | `is`, `is_not`, `contains`, `does_not_contain`, `is_empty`, `is_not_empty`, `is_any_of` |
+| `phones` | `json` | no | `phones` | `contains`, `does_not_contain`, `is_empty`, `is_not_empty`, `is_any_of` |
+| `url` | `url` | yes | `url` | `is`, `is_not`, `contains`, `does_not_contain`, `is_empty`, `is_not_empty`, `is_any_of` |
+| `links` | `json` | no | `links` | `contains`, `does_not_contain`, `is_empty`, `is_not_empty`, `is_any_of` |
+| `full_name` | `json` | yes | `full_name` | `is`, `is_not`, `contains`, `does_not_contain`, `is_empty`, `is_not_empty`, `is_any_of` |
+| `address` | `json` | no | `address` | `is`, `is_not`, `contains`, `does_not_contain`, `is_empty`, `is_not_empty`, `is_any_of` |
+| `json` | `json` | no | `json` | `is_empty`, `is_not_empty` |
+| `array` | `json` | no | `array` | `contains`, `does_not_contain`, `is_empty`, `is_not_empty`, `is_any_of` |
+| `file` | `file` | no | `file` | `is`, `is_not`, `is_empty`, `is_not_empty`, `is_any_of` |
+| `files` | `json` | no | `files` | `contains`, `does_not_contain`, `is_empty`, `is_not_empty`, `is_any_of` |
+| `relation` | `reference` | yes | `record_chip` | `is`, `is_not`, `is_empty`, `is_not_empty`, `is_any_of` |
+| `user` | `user` | yes | `record_chip` | `is`, `is_not`, `is_empty`, `is_not_empty`, `is_any_of` |
+
+{/* end:field-registry */}
+
+<Note>
+  `currency` and `full_name` compile their operands against sub-paths
+  (`value.amount`, `name.first`). SnackBase's filter validator allows a
+  JSON-typed column nothing but `IS NULL` / `IS NOT NULL`, so those expressions
+  parse and the backend rejects them until SnackBase gains JSON-path filtering.
+  Filtering inside a composite is a compile-level capability today, not a live
+  one — which is why a collection searched by name wants a `text` display field.
+</Note>
+
+## Composite contracts
+
+Four shapes are fixed by the registry, which validates them on the way in and on
+the way out. A value that does not match raises `ValidationError` rather than
+reaching storage.
+
+### `currency` — `{amount, code}`
+
+```json
+{ "amount": 42000, "code": "USD" }
+```
+
+Both keys are required. The aggregate endpoint refuses `sum()` over a JSON
+column, so a number a board column or a dashboard has to total should be
+`Field.number`, not `Field.currency`.
+
+### `full_name` — `{first, last}`
+
+```json
+{ "first": "Ada", "last": "Lovelace" }
+```
+
+Either key may be `null`; a value that is not an object raises.
+
+### `address` — `{street1, street2, city, region, postcode, country}`
+
+```json
+{
+  "street1": "12 Dock Road",
+  "street2": null,
+  "city": "Bristol",
+  "region": "England",
+  "postcode": "BS1 4RN",
+  "country": "GB"
+}
+```
+
+Every key is present in the stored value, missing ones as `null`.
+
+### `emails`, `phones`, `links` — `[{value, label, primary}]`
+
+```json
+[
+  { "value": "ada@example.com", "label": "work", "primary": true },
+  { "value": "ada@home.example", "label": "home", "primary": false }
+]
+```
+
+Each entry needs a `value`. Exactly one entry is `primary`: a second claim is
+dropped, and a list that claims none gets it on the first entry.
+
+## Types
+
+### `Field.text`
+
+```python
+Field.text(name, required=False, unique=False, default=None)
+```
+
+A single line. `unique` becomes a unique index on the column.
+
+### `Field.long_text`
+
+```python
+Field.long_text(name, required=False)
+```
+
+Many lines, stored as `text`, rendered as a textarea.
+
+### `Field.rich_text`
+
+```python
+Field.rich_text(name)
+```
+
+A document, stored as `json` and edited with TipTap. The value is a string of
+HTML — what the editor emits and what the display sanitises and renders; an
+object with an `html` key is accepted too. Not sortable: a document has no
+order.
+
+### `Field.number`
+
+```python
+Field.number(name, required=False, default=None)
+```
+
+The only type `sum()` and `avg()` accept, which is what a board column total and
+a dashboard aggregate need.
+
+### `Field.currency`
+
+```python
+Field.currency(name, required=False)
+```
+
+Money as [`{amount, code}`](#currency-amount-code).
+
+### `Field.percent`
+
+```python
+Field.percent(name)
+```
+
+A number rendered with a `%` suffix. Stored as the number, not as a fraction.
+
+### `Field.rating`
+
+```python
+Field.rating(name, max=5)
+```
+
+Stars. `max` above 10 raises.
+
+### `Field.boolean`
+
+```python
+Field.boolean(name, default=None)
+```
+
+A switch.
+
+### `Field.date`
+
+```python
+Field.date(name, required=False)
+```
+
+A calendar day, with no time and no zone. `ui.calendar` places records on one of
+these.
+
+### `Field.datetime`
+
+```python
+Field.datetime(name, required=False)
+```
+
+An instant, stored in UTC.
+
+### `Field.select`
+
+```python
+Field.select(name, options, required=False, default=None)
+```
+
+One of `options`, stored as `text`. The choices drive the editor, and
+`ui.kanban` takes its columns from them when none are named.
+
+### `Field.multi_select`
+
+```python
+Field.multi_select(name, options)
+```
+
+Several of `options`, stored as `json`. Not sortable: a set has no order.
+
+### `Field.email`
+
+```python
+Field.email(name, required=False, unique=False)
+```
+
+Validated as an address, and marked PII with email masking.
+
+### `Field.emails`
+
+```python
+Field.emails(name)
+```
+
+Several addresses as [`[{value, label, primary}]`](#emails-phones-links-value-label-primary).
+
+### `Field.phone`
+
+```python
+Field.phone(name)
+```
+
+One number, marked PII with phone masking.
+
+### `Field.phones`
+
+```python
+Field.phones(name)
+```
+
+Several numbers as [`[{value, label, primary}]`](#emails-phones-links-value-label-primary).
+
+### `Field.url`
+
+```python
+Field.url(name, required=False)
+```
+
+Validated as a URL and rendered as a link.
+
+### `Field.links`
+
+```python
+Field.links(name)
+```
+
+Several URLs as [`[{value, label, primary}]`](#emails-phones-links-value-label-primary).
+
+### `Field.full_name`
+
+```python
+Field.full_name(name)
+```
+
+A person's name as [`{first, last}`](#full-name-first-last).
+
+### `Field.address`
+
+```python
+Field.address(name)
+```
+
+A postal address as [`{street1, …}`](#address-street1-street2-city-region-postcode-country).
+
+### `Field.json`
+
+```python
+Field.json(name)
+```
+
+Anything JSON. Its only operands are `is_empty` and `is_not_empty`, because that
+is all the backend can ask of a JSON column.
+
+### `Field.array`
+
+```python
+Field.array(name)
+```
+
+A JSON list, filtered with the array operands.
+
+### `Field.file`
+
+```python
+Field.file(name)
+```
+
+One upload, stored as a file reference.
+
+### `Field.files`
+
+```python
+Field.files(name)
+```
+
+Several uploads, stored as `json`.
+
+### `Field.relation`
+
+```python
+Field.relation(name, to, display=None, required=False, on_delete="restrict")
+```
+
+One record of the `to` collection. `display` names the field a chip shows;
+without it the target's `label_field`, then `name`, then `title`, then `id` is
+used. `on_delete` is `"restrict"`, `"set_null"`, or `"cascade"`.
+
+A column of relations is expanded by the backend in one batched lookup, so a
+hundred rows with an owner cost the row query plus one lookup.
+
+### `Field.relation_many`
+
+```python
+Field.relation_many(name, to, display=None, on_delete="restrict")
+```
+
+Several records of the `to` collection. A multi-relation is what a
+`ui.record(tabs=[{"field": ...}])` tab lists.
+
+### `Field.user`
+
+```python
+Field.user(name, required=False, on_delete="restrict")
+```
+
+A user of this account. `on_delete="cascade"` raises: deleting a person must not
+delete their records. `access="private"` adds one of these as `owner` when the
+collection does not declare it.
+
+## Computed fields
+
+### `Field.computed`
+
+```python
+Field.computed(name, expression, return_type="text")
+```
+
+A column the backend computes on read. It is read-only in every editor — a table
+cell, a field grid, a form, and the CSV import wizard all refuse it — because
+there is nothing to write to.
+
+`return_type` is `"text"`, `"number"`, `"boolean"`, or `"datetime"`. It decides
+the operand set (`text` or `number`) and the sortability: `text`, `number`,
+`boolean`, and `datetime` sort; anything else does not.
+
+The permitted functions are exactly:
+
+| Group | Functions |
+| --- | --- |
+| Text | `concat`, `upper`, `lower`, `trim`, `substring`, `length` |
+| Number | `round`, `abs`, `ceil`, `floor` |
+| Logic | `if`, `coalesce`, `nullif` |
+| Date | `now`, `date_diff`, `date_add` |
+
+`date_diff` and `date_add` take a string-literal unit: `'days'`, `'hours'`,
+`'minutes'`, `'seconds'`, `'months'`, or `'years'`.
+
+```python
+from snackapp import Field
+
+TASKS = [
+    Field.text("title", required=True),
+    Field.date("due"),
+    # Negative when overdue, so sorting ascending puts the most overdue first.
+    Field.computed("days_until_due", "date_diff(due, now(), 'days')", "number"),
+]
+```
+
+## Declared view placeholders
+
+A declared default view — `views=` on a collection — cannot name the caller or
+the current month when it is written, so four placeholder values are substituted
+where the filter is read:
+
+| Placeholder | Resolves to |
+| --- | --- |
+| `@me` | The signed-in user's id, or `""` when there is none. |
+| `@today` | Today's date, on the server's UTC clock. |
+| `@month_start` | The first day of the current month. |
+| `@month_end` | The last day of the current month. |
+
+```python
+from snackapp import App, Field
+
+app = App("Demo")
+items = app.collection(
+    "items",
+    Field.text("name", required=True),
+    Field.date("due"),
+    Field.user("owner"),
+    views=[
+        {"name": "All", "type": "table"},
+        {
+            "name": "Mine, due this month",
+            "type": "table",
+            "filters": [
+                {"field": "owner", "operand": "is", "value": "@me"},
+                {"field": "due", "operand": "gte", "value": "@month_start"},
+                {"field": "due", "operand": "lte", "value": "@month_end"},
+            ],
+        },
+    ],
+)
+```

@@ -1,0 +1,955 @@
+---
+title: "SnackApp UI primitives"
+description: "Every ui.* primitive, its parameters, and a runnable example"
+---
+
+One section per primitive exported by `snackapp.ui`. Every example is a complete
+page module: paste it into a new file under `pages/` of a project scaffolded by
+`snackapp init` and it runs against that project's `items` and `notes`
+collections.
+
+The types a primitive renders come from the collection's declared schema. The
+storage shape, the operands, and the renderer of each type are in the
+[field-type reference](/guides/snackapp-fields).
+
+<Note>
+  A page function runs once per navigation, on the server, with real data in
+  hand. What it returns is a tree, not HTML. Typing, sorting a loaded table,
+  opening a modal, and switching a tab never call Python again; an `@action`
+  does.
+</Note>
+
+## Layout
+
+### `ui.header`
+
+```python
+ui.header(title, subtitle=None, actions=None)
+```
+
+| Parameter | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `title` | `str` | — | The page title. |
+| `subtitle` | `str \| None` | `None` | One line under it. |
+| `actions` | `list \| None` | `None` | `ui.button` calls, rendered in the header rather than below it. |
+
+A button passed to `actions` is moved into the header, so it renders once.
+
+```python
+from snackapp import action, page, ui
+
+
+@action
+def add_item(ctx, name):
+    ctx.app.tables["items"].create(name=name)
+
+
+@page("/ui/header", title="Header")
+def header_demo(ctx):
+    ui.header(
+        "Items",
+        subtitle="Everything this team is working on",
+        actions=[ui.button("New item", opens="new_item")],
+    )
+    ui.modal_form("new_item", "add_item", ["name"], title="New item")
+```
+
+### `ui.row`
+
+```python
+with ui.row(gap="md", align="stretch"):
+    ...
+```
+
+| Parameter | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `gap` | `str` | `"md"` | Space between children: `"sm"`, `"md"`, `"lg"`. |
+| `align` | `str` | `"stretch"` | Cross-axis alignment, as CSS `align-items`. |
+
+Children wrap, and below 768px they stack.
+
+```python
+from snackapp import page, ui
+
+
+@page("/ui/row", title="Row")
+def row_demo(ctx):
+    items = ctx.app.tables["items"]
+    with ui.row(gap="lg", align="center"):
+        ui.stat("Items", items.count())
+        ui.stat("Done", items.where(("status", "is", "done")).count())
+```
+
+### `ui.column`
+
+```python
+with ui.column(width=None):
+    ...
+```
+
+| Parameter | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `width` | `str \| None` | `None` | A CSS width for this column; `None` shares the row evenly. |
+
+```python
+from snackapp import page, ui
+
+
+@page("/ui/column", title="Column")
+def column_demo(ctx):
+    with ui.row():
+        with ui.column(width="280px"):
+            ui.text("Filters live here.", muted=True)
+        with ui.column():
+            ui.table(ctx.app.tables["items"].query(), ["name", "status"])
+```
+
+### `ui.card`
+
+```python
+with ui.card(title=None, actions=None):
+    ...
+```
+
+| Parameter | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `title` | `str \| None` | `None` | Heading inside the card. |
+| `actions` | `list \| None` | `None` | `ui.button` calls for the card's corner. |
+
+```python
+from snackapp import action, page, ui
+
+
+@action
+def clear_filters(ctx):
+    ctx.go("/ui/card")
+
+
+@page("/ui/card", title="Card")
+def card_demo(ctx):
+    with ui.card(title="This week", actions=[ui.button("Reset", action="clear_filters")]):
+        ui.table(ctx.app.tables["items"].query(), ["name", "due"])
+```
+
+### `ui.tabs`
+
+```python
+with ui.tabs():
+    ...
+```
+
+Takes no parameters. It holds `ui.tab` children and nothing else; switching one
+is client-local and calls no Python.
+
+```python
+from snackapp import page, ui
+
+
+@page("/ui/tabs", title="Tabs")
+def tabs_demo(ctx):
+    items = ctx.app.tables["items"]
+    with ui.tabs():
+        with ui.tab("Open"):
+            ui.table(items.where(("status", "is_not", "done")), ["name", "due"])
+        with ui.tab("Done"):
+            ui.table(items.where(("status", "is", "done")), ["name", "due"])
+```
+
+### `ui.tab`
+
+```python
+with ui.tab(label):
+    ...
+```
+
+| Parameter | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `label` | `str` | — | The tab's name in the strip. |
+
+```python
+from snackapp import page, ui
+
+
+@page("/ui/tab", title="Tab")
+def tab_demo(ctx):
+    with ui.tabs():
+        with ui.tab("Summary"):
+            ui.stat("Items", ctx.app.tables["items"].count())
+        with ui.tab("Notes"):
+            ui.table(ctx.app.tables["notes"].query(), ["title"])
+```
+
+### `ui.fragment`
+
+```python
+with ui.fragment(name):
+    ...
+```
+
+| Parameter | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `name` | `str` | — | The name an action passes to `ctx.refresh()`. |
+
+A fragment is what replaces a whole-page rerun: an action names it and only
+this subtree is rebuilt. The collections read inside it become its
+dependencies, so a write to one refreshes it without being asked.
+
+```python
+from snackapp import page, ui
+
+
+@page("/ui/fragment", title="Fragment")
+def fragment_demo(ctx):
+    with ui.fragment("open-items"):
+        ui.table(
+            ctx.app.tables["items"].where(("status", "is_not", "done")),
+            ["name", "status"],
+        )
+```
+
+### `ui.grid`
+
+```python
+with ui.grid(columns=2, gap="md"):
+    ...
+```
+
+| Parameter | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `columns` | `int` | `2` | Columns on a wide screen, clamped to 1–6. |
+| `gap` | `str` | `"md"` | Space between cells. |
+
+Below 768px it is one column.
+
+```python
+from snackapp import page, ui
+
+
+@page("/ui/grid", title="Grid")
+def grid_demo(ctx):
+    items = ctx.app.tables["items"]
+    with ui.grid(columns=3):
+        ui.stat("All", items.count())
+        ui.stat("Doing", items.where(("status", "is", "doing")).count())
+        ui.stat("Done", items.where(("status", "is", "done")).count())
+```
+
+### `ui.divider`
+
+```python
+ui.divider()
+```
+
+Takes no parameters.
+
+```python
+from snackapp import page, ui
+
+
+@page("/ui/divider", title="Divider")
+def divider_demo(ctx):
+    ui.text("Above")
+    ui.divider()
+    ui.text("Below")
+```
+
+## Display
+
+### `ui.text`
+
+```python
+ui.text(value, muted=False)
+```
+
+| Parameter | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `value` | `str` | — | The string to render. |
+| `muted` | `bool` | `False` | Render in the muted foreground colour. |
+
+```python
+from snackapp import page, ui
+
+
+@page("/ui/text", title="Text")
+def text_demo(ctx):
+    ui.text("Every item your team owns.")
+    ui.text("Updated on each navigation.", muted=True)
+```
+
+### `ui.markdown`
+
+```python
+ui.markdown(value)
+```
+
+| Parameter | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `value` | `str` | — | Markdown source; it is sanitised before it is inserted. |
+
+```python
+from snackapp import page, ui
+
+
+@page("/ui/markdown", title="Markdown")
+def markdown_demo(ctx):
+    ui.markdown("## Playbook\n\n1. Qualify\n2. Propose\n3. **Close**")
+```
+
+### `ui.stat`
+
+```python
+ui.stat(label, value, delta=None, tone="neutral", format=None)
+```
+
+| Parameter | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `label` | `str` | — | What the number is. |
+| `value` | `Any` | — | A number, a string, or a `Query` — a query is counted by the backend. |
+| `delta` | `str \| None` | `None` | A change to show beside it, such as `"+12%"`. |
+| `tone` | `str` | `"neutral"` | `"neutral"`, `"positive"`, or `"negative"`. |
+| `format` | `str \| None` | `None` | `"currency"` or `"percent"` to format the value. |
+
+Handed a `Query`, it issues an aggregate; the rows it counts never leave the
+database.
+
+```python
+from snackapp import page, ui
+
+
+@page("/ui/stat", title="Stat")
+def stat_demo(ctx):
+    items = ctx.app.tables["items"]
+    with ui.row():
+        ui.stat("Open", items.where(("status", "is_not", "done")))
+        ui.stat("Done", items.where(("status", "is", "done")), tone="positive")
+```
+
+### `ui.badge`
+
+```python
+ui.badge(value, tone="neutral")
+```
+
+| Parameter | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `value` | `str` | — | The text in the badge. |
+| `tone` | `str` | `"neutral"` | `"neutral"`, `"positive"`, `"negative"`, or `"warning"`. |
+
+```python
+from snackapp import page, ui
+
+
+@page("/ui/badge", title="Badge")
+def badge_demo(ctx):
+    ui.badge("saas")
+    ui.badge("overdue", tone="negative")
+```
+
+### `ui.empty`
+
+```python
+ui.empty(message, action=None)
+```
+
+| Parameter | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `message` | `str` | — | What is missing. |
+| `action` | `dict \| None` | `None` | One `ui.button` call that resolves it. |
+
+```python
+from snackapp import action, page, ui
+
+
+@action
+def start_item(ctx, name):
+    ctx.app.tables["items"].create(name=name, status="todo")
+
+
+@page("/ui/empty", title="Empty")
+def empty_demo(ctx):
+    items = ctx.app.tables["items"].query()
+    if not items.count():
+        ui.empty("No items yet.", action=ui.button("New item", opens="new_item"))
+        ui.modal_form("new_item", "start_item", ["name"], title="New item")
+        return
+    ui.table(items, ["name", "status"])
+```
+
+## Data surfaces
+
+Each of the four view types takes either a materialised `list[dict]`, which is
+paged in the browser, or a [`Query`](/guides/snackapp), which is paged on the
+server: the page function registers it and the client fetches every page —
+the first one included — through `/_sa/rows`.
+
+### `ui.table`
+
+```python
+ui.table(rows, columns, row_link=None, search=None,
+         empty_message="Nothing here yet.", row_actions=None,
+         page_size=25, editable=False, collection=None)
+```
+
+| Parameter | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `rows` | `list[dict] \| Query` | — | Loaded rows, or a query the client pages. |
+| `columns` | `list` | — | Field names, or `{"field", "label", "type", "width", "editable"}` dicts. |
+| `row_link` | `str \| None` | `None` | A path template such as `"/items/{id}"`; clicking a row follows it. |
+| `search` | `list[str] \| None` | `None` | Fields a client-side search box matches. |
+| `empty_message` | `str` | `"Nothing here yet."` | Shown when there are no rows. |
+| `row_actions` | `list \| None` | `None` | `{"label", "action", "params"}` dicts for a per-row control. |
+| `page_size` | `int` | `25` | Rows per page, capped at 100 by the backend. |
+| `editable` | `bool` | `False` | Every cell becomes an inline editor. |
+| `collection` | `str \| None` | `None` | Where edits are written; a query supplies its own. |
+
+A column's type comes from the declared schema, so the renderer and the editor
+match the [field type](/guides/snackapp-fields) without the page repeating it.
+A single column opts out with `{"field": ..., "editable": False}`. Grouping
+comes from the URL, and each group gets its own cursor and its own count.
+
+```python
+from snackapp import page, ui
+
+
+@page("/ui/table", title="Table")
+def table_demo(ctx):
+    ui.table(
+        ctx.app.tables["items"].query().expand("owner"),
+        [{"field": "name", "editable": False}, "status", "due", "owner"],
+        row_link="/items/{id}",
+        editable=True,
+        page_size=25,
+    )
+```
+
+### `ui.list_view`
+
+```python
+ui.list_view(rows, title_field="name", subtitle_field=None, card_link=None,
+             fields=None, collection=None, page_size=25)
+```
+
+| Parameter | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `rows` | `list[dict] \| Query` | — | Loaded rows, or a query the client pages. |
+| `title_field` | `str` | `"name"` | The field shown as each row's title. |
+| `subtitle_field` | `str \| None` | `None` | A second line under the title. |
+| `card_link` | `str \| None` | `None` | A path template each row links to. |
+| `fields` | `list \| None` | `None` | Extra fields to show, as names or column dicts. |
+| `collection` | `str \| None` | `None` | The collection, when `rows` is a list. |
+| `page_size` | `int` | `25` | Rows per page. |
+
+This is also what a board or a calendar falls back to below 768px.
+
+```python
+from snackapp import page, ui
+
+
+@page("/ui/list", title="List")
+def list_demo(ctx):
+    ui.list_view(
+        ctx.app.tables["items"].query(),
+        title_field="name",
+        subtitle_field="status",
+        fields=["due", "value"],
+        card_link="/items/{id}",
+    )
+```
+
+### `ui.kanban`
+
+```python
+ui.kanban(rows, group_by, groups=None, title_field="name", subtitle_field=None,
+          value_field=None, on_move=None, card_link=None, page_size=25,
+          collection=None)
+```
+
+| Parameter | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `rows` | `list[dict] \| Query` | — | Loaded rows, or a query — one cursor per column. |
+| `group_by` | `str` | — | The field whose values become columns. |
+| `groups` | `list[str] \| None` | `None` | The columns; left out, the declared `select` choices of `group_by`. |
+| `title_field` | `str` | `"name"` | Each card's title. |
+| `subtitle_field` | `str \| None` | `None` | A second line on the card. |
+| `value_field` | `str \| None` | `None` | A `number` field summed per column. |
+| `on_move` | `str \| None` | `None` | The action a drop calls with `id` and the target group. |
+| `card_link` | `str \| None` | `None` | A path template each card links to. |
+| `page_size` | `int` | `25` | Cards per column page. |
+| `collection` | `str \| None` | `None` | The collection, when `rows` is a list. |
+
+With no `on_move`, a drop writes `group_by` through the record endpoint. The
+column count and the `value_field` sum are aggregates over the whole column,
+not over the cards that happen to be loaded; `value_field` must be a `number`,
+because the aggregate endpoint refuses `sum()` over a JSON column.
+
+```python
+from snackapp import action, page, ui
+
+
+@action
+def move_item(ctx, id, status):
+    ctx.app.tables["items"].update(id, status=status)
+
+
+@page("/ui/kanban", title="Board")
+def kanban_demo(ctx):
+    ui.kanban(
+        ctx.app.tables["items"].query(),
+        group_by="status",
+        title_field="name",
+        subtitle_field="due",
+        on_move="move_item",
+        card_link="/items/{id}",
+    )
+```
+
+### `ui.calendar`
+
+```python
+ui.calendar(rows, date_field, card_link=None, collection=None,
+            title_field="name", mode="month", page_size=100)
+```
+
+| Parameter | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `rows` | `list[dict] \| Query` | — | Loaded rows, or a query the client pages. |
+| `date_field` | `str` | — | The `date` or `datetime` field records are placed on. |
+| `card_link` | `str \| None` | `None` | A path template each entry links to. |
+| `collection` | `str \| None` | `None` | The collection, when `rows` is a list. |
+| `title_field` | `str` | `"name"` | What each entry is labelled with. |
+| `mode` | `str` | `"month"` | `"month"` or `"week"`. |
+| `page_size` | `int` | `100` | Records fetched per page. |
+
+`date_field` is checked against the declared schema when the page runs, so a
+calendar over a field that is not a date fails with the dated fields named
+rather than rendering nothing.
+
+```python
+from snackapp import page, ui
+
+
+@page("/ui/calendar", title="Calendar")
+def calendar_demo(ctx):
+    ui.calendar(
+        ctx.app.tables["items"].query(),
+        "due",
+        title_field="name",
+        card_link="/items/{id}",
+    )
+```
+
+### `ui.fields`
+
+```python
+ui.fields(record, spec, editable=False, action=None, collection=None)
+```
+
+| Parameter | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `record` | `dict` | — | The record to render, as `Table.get` returned it. |
+| `spec` | `list` | — | Field names, or `{"field", "label", "type"}` dicts. |
+| `editable` | `bool` | `False` | Each value becomes an inline editor. |
+| `action` | `str \| None` | `None` | An action a commit goes to, instead of the record endpoint. |
+| `collection` | `str \| None` | `None` | The collection a commit writes to. |
+
+An editable grid needs one of `collection` or `action`, or it raises.
+
+```python
+from snackapp import page, ui
+
+
+@page("/ui/fields", title="Fields")
+def fields_demo(ctx):
+    row = ctx.app.tables["items"].list(limit=1)
+    if not row:
+        ui.empty("No items yet.")
+        return
+    ui.fields(row[0], ["name", "status", "due", "value"],
+              editable=True, collection="items")
+```
+
+### `ui.record`
+
+```python
+ui.record(collection, id, fields=None, tabs=None, panel=False,
+          editable=True, route=None, siblings=None)
+```
+
+| Parameter | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `collection` | `str` | — | The collection the record is in. |
+| `id` | `str` | — | The record's id. |
+| `fields` | `list \| None` | `None` | The field grid; `None` shows every readable field. |
+| `tabs` | `list \| None` | `None` | Related tabs: a collection name, or a dict (below). |
+| `panel` | `bool` | `False` | A list may open this record beside itself instead of navigating. |
+| `editable` | `bool` | `True` | Whether the field grid edits in place. |
+| `route` | `str \| None` | `None` | The path template previous and next build; defaults to `/{collection}/{id}`. |
+| `siblings` | `Query \| None` | `None` | The list previous and next walk; defaults to the collection under the same view state. |
+
+A tab is `"notes"` — a collection that points back at this one — or a dict:
+`{"collection": ..., "via": ..., "columns": [...], "label": ..., "row_link": ...,
+"page_size": ...}` when the pointing field is ambiguous or is not a relation, or
+`{"field": ...}` to list the records a multi-relation on *this* record points at.
+Each tab's count is an aggregate over the whole related set.
+
+```python
+from snackapp import page, ui
+
+
+@page("/items/{id}", title="Item")
+def item_detail(id, ctx):
+    ui.record(
+        "items",
+        id,
+        fields=["name", "status", "due", "value", "owner"],
+        tabs=[{"collection": "notes", "via": "item", "columns": ["title", "body"]}],
+    )
+```
+
+### `ui.timeline`
+
+```python
+ui.timeline(items=None, title_field="title", time_field="created_at",
+            body_field=None, collection=None, id=None, title=None,
+            comments=True, page_size=25)
+```
+
+| Parameter | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `items` | `list[dict] \| None` | `None` | Rows to group by day, when the page composes its own feed. |
+| `title_field` | `str` | `"title"` | The field each entry is titled with. |
+| `time_field` | `str` | `"created_at"` | The field entries are grouped and ordered by. |
+| `body_field` | `str \| None` | `None` | A field rendered under the title. |
+| `collection` | `str \| None` | `None` | With `id`, makes this the record's own feed. |
+| `id` | `str \| None` | `None` | The record whose history to show. |
+| `title` | `str \| None` | `None` | A heading above the feed. |
+| `comments` | `bool` | `True` | Whether the feed accepts comments. |
+| `page_size` | `int` | `25` | Entries per page, capped at 100. |
+
+Naming a `collection` and an `id` shows the framework's own feed: what it wrote
+when the record was created and when a tracked field changed, plus the comments
+people added, newest first. Tracking is `activity=True` on the collection.
+
+```python
+from snackapp import page, ui
+
+
+@page("/ui/timeline", title="Timeline")
+def timeline_demo(ctx):
+    row = ctx.app.tables["items"].list(limit=1)
+    if not row:
+        ui.empty("No items yet.")
+        return
+    ui.timeline(collection="items", id=row[0]["id"], title="Activity")
+```
+
+### `ui.chart`
+
+```python
+ui.chart(kind, data=None, collection=None, x=None, y=None,
+         aggregate=None, title=None, height=220)
+```
+
+| Parameter | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `kind` | `str` | — | `"bar"`, `"line"`, `"area"`, or `"pie"`. |
+| `data` | `list[dict] \| Query \| None` | `None` | Rows the page already has, or a query to aggregate. |
+| `collection` | `str \| None` | `None` | The collection, for labelling a list of rows. |
+| `x` | `str \| None` | `None` | The field to group by; required for a query. |
+| `y` | `str \| None` | `None` | The field to aggregate; left out, the series counts. |
+| `aggregate` | `str \| None` | `None` | `"sum"`, `"avg"`, `"min"`, `"max"`, or `"count"`. |
+| `title` | `str \| None` | `None` | A heading above the chart. |
+| `height` | `int` | `220` | Height in pixels. |
+
+A chart over a query is one `GROUP BY` computed by the backend. Six widgets on
+a dashboard are six aggregates, not six scans.
+
+```python
+from snackapp import page, ui
+
+
+@page("/ui/chart", title="Chart")
+def chart_demo(ctx):
+    ui.chart("bar", ctx.app.tables["items"].query(), x="status", title="By status")
+```
+
+### `ui.bar_chart`
+
+```python
+ui.bar_chart(data, label_field, value_field, height=180)
+```
+
+| Parameter | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `data` | `list[dict]` | — | Rows to plot; no query is issued. |
+| `label_field` | `str` | — | The key each bar is labelled with. |
+| `value_field` | `str` | — | The key each bar's height comes from. |
+| `height` | `int` | `180` | Height in pixels. |
+
+The minimal bars, for a series a page function already has. `ui.chart` is what
+aggregates.
+
+```python
+from snackapp import page, ui
+
+
+@page("/ui/bar-chart", title="Bars")
+def bar_chart_demo(ctx):
+    payload = ctx.app.tables["items"].query().aggregate(
+        functions="count()", group_by="status"
+    )
+    rows = payload.get("results") or [] if isinstance(payload, dict) else []
+    ui.bar_chart(rows, "status", "count")
+```
+
+## View controls
+
+### `ui.view_bar`
+
+```python
+ui.view_bar(views=None, current=None, collection=None)
+```
+
+| Parameter | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `views` | `list[dict] \| None` | `None` | Names the page lists inline, as strings or `{"name", "type"}` dicts. |
+| `current` | `str \| None` | `None` | The view to select when the URL names none. |
+| `collection` | `str \| None` | `None` | Loads that collection's saved views and enables saving. |
+
+The current view is whatever the address bar says, so switching is a navigation
+and the back button undoes it. With `collection`, the bar shows the defaults
+`views=` declares on the collection — which cannot be renamed or deleted — plus
+the personal and shared views the signed-in user can see, and saving, renaming,
+duplicating and deleting go through `/_sa/views`.
+
+```python
+from snackapp import page, ui
+
+
+@page("/ui/view-bar", title="Views")
+def view_bar_demo(ctx):
+    ui.view_bar([{"name": "Table"}, {"name": "Board", "type": "kanban"}],
+                collection="items")
+    if ui.view_state().view == "Board":
+        ui.kanban(ctx.app.tables["items"].query(), group_by="status")
+        return
+    ui.table(ctx.app.tables["items"].query(), ["name", "status"])
+```
+
+### `ui.filter_bar`
+
+```python
+ui.filter_bar(spec, values=None, collection=None)
+```
+
+| Parameter | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `spec` | `list` | — | Field names, or `{"field", "operand", "label", "type", "options"}` dicts. |
+| `values` | `dict \| None` | `None` | Starting values, overridden by anything in the URL. |
+| `collection` | `str \| None` | `None` | Fills types and choices from the schema and carries the field catalogue. |
+
+Filters bind to the URL, not to hidden server state, so a filtered view is
+shareable and back-button correct. With `collection`, the filter, sort and group
+builders offer exactly the operands each field's type declares, so a user cannot
+compose a filter the compiler would reject.
+
+```python
+from snackapp import page, ui
+
+
+@page("/ui/filter-bar", title="Filters")
+def filter_bar_demo(ctx):
+    ui.filter_bar(
+        [{"field": "name", "operand": "contains"}, "status", "owner"],
+        collection="items",
+    )
+    ui.table(ctx.app.tables["items"].query(), ["name", "status", "owner"])
+```
+
+## Input
+
+### `ui.button`
+
+```python
+ui.button(label, action=None, params=None, link=None, opens=None,
+          tone="default", confirm=None)
+```
+
+| Parameter | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `label` | `str` | — | The button's text. |
+| `action` | `str \| None` | `None` | The action to run. |
+| `params` | `dict \| None` | `None` | Arguments passed to the action. |
+| `link` | `str \| None` | `None` | A path to navigate to instead. |
+| `opens` | `str \| None` | `None` | The name of a `ui.modal_form` to open. |
+| `tone` | `str` | `"default"` | `"default"`, `"primary"`, or `"danger"`. |
+| `confirm` | `str \| None` | `None` | A prompt shown before anything happens. |
+
+`confirm` is checked first, then `opens`, then `link`, then `action`.
+
+```python
+from snackapp import action, page, ui
+
+
+@action
+def finish_all(ctx):
+    for row in ctx.app.tables["items"].where(("status", "is_not", "done")).list(limit=100):
+        ctx.app.tables["items"].update(row["id"], status="done")
+    ctx.toast("All done")
+
+
+@page("/ui/button", title="Button")
+def button_demo(ctx):
+    ui.button("Finish everything", action="finish_all",
+              tone="danger", confirm="Mark every item done?")
+    ui.button("Back to items", link="/")
+```
+
+### `ui.form`
+
+```python
+ui.form(name, action, spec, values=None, submit_label="Save",
+        title=None, params=None)
+```
+
+| Parameter | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `name` | `str` | — | The form's name, which a modal is opened by. |
+| `action` | `str` | — | The action the submit calls. |
+| `spec` | `list` | — | Field names, or `{"field", "label", "type", "required", "options"}` dicts. |
+| `values` | `dict \| None` | `None` | Starting values. |
+| `submit_label` | `str` | `"Save"` | The submit button's text. |
+| `title` | `str \| None` | `None` | A heading above the fields. |
+| `params` | `dict \| None` | `None` | Fixed arguments merged into the submission. |
+| `collection` | `str \| None` | `None` | Fills each field's type, choices and requiredness from the schema. |
+
+Draft state lives in the browser: Python never sees a keystroke. Without
+`collection`, a field with no declared `type` is a text box — which is how a
+`url` field ends up rejected by the backend on submit rather than by the editor
+on the way in.
+
+```python
+from snackapp import action, page, ui
+
+
+@action
+def create_item(ctx, name, status="todo"):
+    ctx.app.tables["items"].create(name=name, status=status)
+    ctx.toast("Created")
+
+
+@page("/ui/form", title="Form")
+def form_demo(ctx):
+    ui.form(
+        "create",
+        "create_item",
+        ["name", "status"],
+        collection="items",
+        submit_label="Create item",
+        title="New item",
+    )
+```
+
+### `ui.modal_form`
+
+```python
+ui.modal_form(name, action, spec, values=None, submit_label="Save",
+              title=None, params=None)
+```
+
+The parameters are `ui.form`'s. The form is declared where the page wants it and
+stays closed until a `ui.button(opens=name)` reveals it; a successful submit
+closes it.
+
+| Parameter | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `name` | `str` | — | The name `ui.button(opens=...)` refers to. |
+| `action` | `str` | — | The action the submit calls. |
+| `spec` | `list` | — | The fields, as `ui.form` takes them. |
+| `values` | `dict \| None` | `None` | Starting values. |
+| `submit_label` | `str` | `"Save"` | The submit button's text. |
+| `title` | `str \| None` | `None` | The dialog's title. |
+| `params` | `dict \| None` | `None` | Fixed arguments merged into the submission. |
+| `collection` | `str \| None` | `None` | Fills each field's type, choices and requiredness from the schema. |
+
+```python
+from snackapp import action, page, ui
+
+
+@action
+def add_note(ctx, title, body, item):
+    ctx.app.tables["notes"].create(title=title, body=body, item=item)
+
+
+@page("/ui/modal-form", title="Modal form")
+def modal_form_demo(ctx):
+    row = ctx.app.tables["items"].list(limit=1)
+    if not row:
+        ui.empty("No items yet.")
+        return
+    ui.button("Add a note", opens="note")
+    ui.modal_form(
+        "note",
+        "add_note",
+        ["title", {"field": "body", "type": "long_text"}],
+        collection="notes",
+        params={"item": row[0]["id"]},
+        title="New note",
+        submit_label="Save note",
+    )
+```
+
+## CSV
+
+### `ui.import_csv`
+
+```python
+ui.import_csv(collection, title="Import", on_done=None)
+```
+
+| Parameter | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `collection` | `str` | — | The collection rows are written to. |
+| `title` | `str` | `"Import"` | The wizard's title. |
+| `on_done` | `str \| None` | `None` | An action called once the import finishes. |
+
+Upload, preview, map, validate, write — in that order. Nothing reaches the
+collection until the mapping is confirmed and every row validates, and the
+wizard refuses at the start for a user who cannot create in the target. Computed
+fields are not offered as targets.
+
+```python
+from snackapp import page, ui
+
+
+@page("/ui/import", title="Import")
+def import_demo(ctx):
+    ui.import_csv("items", title="Import items")
+```
+
+### `ui.export_csv`
+
+```python
+ui.export_csv(rows, columns=None, label="Export CSV", filename=None)
+```
+
+| Parameter | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `rows` | `Query` | — | The query to export; a list raises. |
+| `columns` | `list \| None` | `None` | Columns to write; `None` exports every declared field. |
+| `label` | `str` | `"Export CSV"` | The control's label. |
+| `filename` | `str \| None` | `None` | The downloaded file's name; defaults to `<collection>.csv`. |
+
+The export is the view: the same query, narrowed by the same URL, streamed from
+the server a page at a time rather than assembled in the browser.
+
+```python
+from snackapp import page, ui
+
+
+@page("/ui/export", title="Export")
+def export_demo(ctx):
+    items = ctx.app.tables["items"].query()
+    ui.export_csv(items, ["name", "status", "due"], filename="items.csv")
+    ui.table(items, ["name", "status", "due"])
+```

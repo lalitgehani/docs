@@ -18,45 +18,89 @@ Open http://localhost:8000 and sign in with the credentials printed on first boo
 
 ## Tutorial
 
-`app.py` declares the app and collections. Pages live under `pages/` and use `@page` without importing the app object.
+`app.py` declares the app and its collections; `models.py` holds the field lists
+it imports. Pages live under `pages/` and use `@page` without importing the app
+object, which is what keeps `app.py -> pages/ -> app.py` from being a circular
+import. A module's path is its route: `pages/items.py` is `/items` and
+`pages/items/[id].py` is `/items/{id}`.
 
 ```python
-from snackapp import App, Field
+from snackapp import Field
+
+ITEMS = [
+    Field.text("name", required=True),
+    Field.select("status", ["todo", "doing", "done"], default="todo"),
+    Field.currency("value"),
+    Field.date("due"),
+    Field.user("owner"),
+]
+```
+
+```python
+from snackapp import App
+
+from models import ITEMS
 
 app = App("Demo")
-items = app.collection(
-    "items",
-    Field.text("name", required=True),
-    access="team",
-)
+items = app.collection("items", *ITEMS, access="team", activity=True)
 ```
 
 ```python
 from snackapp import page, ui
 
+
 @page("/", title="Home", nav=True)
 def home(ctx):
     ui.header("Home")
-    ui.table(ctx.app.tables["items"].list(), ["name"])
+    ui.table(ctx.app.tables["items"].query(), ["name", "status", "due"])
 ```
 
 Access presets: `team`, `private`, `readonly`, `public`. `private` adds an `owner` user field when missing.
 
+## The state model
+
+A page function runs **once per navigation**, on the server, with real data in
+hand, and returns a tree rather than HTML. After that, an interaction is one of
+two things: client-local — typing, sorting a loaded table, opening a modal,
+switching a tab — which never calls Python; or an `@action`, which is ordinary
+Python that mutates through SnackBase and names the fragments to refresh.
+
+There is deliberately no session state:
+
+| State | Lives in |
+| --- | --- |
+| Data | SnackBase collections |
+| Navigation, filters, sort, grouping, current view | The URL |
+| Ephemeral (drafts, open panels, scroll) | The widget, in the browser |
+
+## Queries
+
+`Table.where()` returns a `Query` rather than rows, and nothing executes until a
+page is asked for. A filter is a `(field, operand, value)` triple compiled
+against the declared schema — a value is never formatted into an expression by
+the caller.
+
+```python
+opportunities = ctx.app.tables["opportunities"]
+open_deals = opportunities.where(("stage", "is_not", "won"), ("stage", "is_not", "lost"))
+ui.stat("Open", open_deals)                      # one aggregate, no rows loaded
+ui.table(open_deals.expand("owner"), ["name", "stage", "amount"])
+```
+
+`Query.in_view()` narrows a query by the filters, sort and grouping in the URL;
+`ui.table` does it for the query it is handed.
+
 ## Field types
 
-`text`, `long_text`, `rich_text`, `number`, `currency`, `percent`, `rating`, `boolean`, `date`, `datetime`, `select`, `multi_select`, `email`, `emails`, `phone`, `phones`, `url`, `links`, `full_name`, `address`, `json`, `array`, `file`, `files`, `relation`, `user`.
-
-Unknown types raise at declaration. Computed fields are read-only.
+Twenty-six types, each with a storage type, an operand set, a renderer, and a
+JSON contract where it is composite. See the
+[field-type reference](/guides/snackapp-fields).
 
 ## `ui.*` primitives
 
-Layout: `header`, `row`, `column`, `card`, `tabs`, `tab`, `fragment`.
-
-Display: `text`, `markdown`, `stat`, `empty`, `badge`, `divider`, `table`, `fields`, `kanban`, `list_view`, `calendar`, `timeline`, `record`, `chart`, `bar_chart`, `view_bar`, `filter_bar`.
-
-Input: `button`, `form`, `modal_form`.
-
-Aggregates: `Table.count` / `Table.aggregate` call SnackBase's aggregate endpoint, not row loads.
+Thirty primitives across layout, display, data surfaces, view controls, input,
+and CSV. Every one has a signature, its parameters, and a runnable example in the
+[UI reference](/guides/snackapp-ui).
 
 ## Deployment
 
@@ -64,4 +108,4 @@ See the SnackApp repository `docs/DEPLOY.md` and `Dockerfile`. Set `SNACKBASE_DA
 
 ## Versioning
 
-SnackApp starts at `0.1.1`. Before `1.0`, breaking changes may land in minor versions; pin `snackapp~=0.1` if you need a freeze.
+SnackApp is `0.2.0`. Before `1.0`, breaking changes may land in minor versions; pin `snackapp~=0.2` if you need a freeze.
